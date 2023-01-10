@@ -1,3 +1,3 @@
-# NumIng_Pluto
+# NumIng
 
-This is a collection of notebooks for Pluto.jl which demonstrate different basic numerical techniques.
+This is a collection of material for the course "Numerische Ingenierumethoden" at the TU Braunschweig.
