@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.19.12
+# v0.19.27
 
 using Markdown
 using InteractiveUtils
@@ -14,226 +14,200 @@ macro bind(def, element)
     end
 end
 
-# ╔═╡ ce6b4784-457c-11ed-097c-cb770363efc8
+# ╔═╡ 73535a84-86a8-11ed-1244-8d2f5d14cc66
 begin
-	using PlutoUI, Plots, ColorSchemes, Latexify, LaTeXStrings
+	using PlutoUI, Plots, ColorSchemes, SparseArrays, LinearAlgebra, LaTeXStrings
 
-	function create_polynomial_string(lefthandside, coefficients, variable)
-		string = "$(lefthandside) = "
-		for i in eachindex(coefficients)
-			if i == 1
-				string *= "$(coefficients[i])"
-			elseif i == 2
-				string *= " + $(coefficients[i]) $(variable)"
-			else
-				string *= " + $(coefficients[i]) $(variable)^$(i-1)"
-			end
+	H(x) = x < 0 ? 0 : 1
+	precompile(H, (Function, Float64))
+	precompile(H, (Function, Float32))
+	precompile(H, (Function, Float16))
+
+	const arccos = acos
+	const arcsin = asin
+	const arctan = atan
+	
+	md"""
+	# Konvektion in 1D
+	"""
+end
+
+# ╔═╡ 57866b31-4ea7-438e-b114-d7510be88a98
+begin
+	md"""
+	## Betrachtetes Problem
+
+	Konvektion in 1D einer Spezies mit Konzentration ``c``.
+
+	Gleichung:
+
+	##### ``\frac{\partial}{\partial t}c(x,t) = -v\,\frac{\partial}{\partial x}c(x,t) ~ ; ~ x \in (0,1), ~ t \in [0, tₑ]``
+
+	Mit Konvektionsgeschwindigkeit 
+	
+	##### ``v = `` $(@bind v Slider(vcat([0.01], 0.1:0.1:1, 1:1:10); default=0.1, show_value=true))
+
+	und 
+	
+	##### ``t_e =`` $(@bind tₑ Slider(vcat(1:1:10, 10:10:100, 100:100:1000); default=10, show_value=true))
+
+	Periodische Randbedingung:
+
+	##### ``c(0,t) = c(1,t)``
+
+	Verwendete Anfangsbedingung:
+
+	##### ``c(x,0) =`` $(@bind cinitial TextField(;default="sin(pi*x)"))
+
+	Die Lösung des Problems ist gegeben durch eine Fortbewegung des des Anfangszustandes mit der Geschwindigkeit **``v``**.
+	Für das gegebene Gebiet der Länge ``1`` und periodischen Randbedingungen wird der Anfangszustand zu den Zeiten ``t^* = n \frac{1}{v} ~ , n \in \mathbb{N}`` erneut erreicht.
+	"""
+end
+
+# ╔═╡ 02017e43-bcb6-4e9c-8655-6fd79da6dd75
+begin
+		# Räumliche Diskretisierung
+	function set_cyclic_diagonal!(K::AbstractMatrix, d::Integer, value::Number)
+		N = size(K)[1]
+		rows = 1:1:N
+		if d < 0
+			columns = vcat(N+d+1:1:N, 1:1:N+d)
+		else
+			columns = vcat(1+d:1:N, 1:1:d)
 		end
-		return string
-	end
-
-		# Embedding a string with LaTeX-Syntax into Markdown
-	wrap_tex(x) = Markdown.LaTeX(repr(MIME"text/latex"(), LaTeXStrings.LaTeXString(x)))
-	precompile(wrap_tex, (String,))
-	
-	md"""
-	# Polynom-Interpolation
-	"""
-end
-
-# ╔═╡ 93dfc702-3463-4ee0-bc09-18035b8e1495
-md"""
-## Parameter
-
-Stützstellen: ``x_i \in`` [$(@bind xᵢstring TextField(;default="-0.5,0,0.5"))]
-
-Zugehörige Funktionswerte: ``y_i \in`` [$(@bind yᵢstring TextField(;default="-0.5,-0.5,0.5"))]
-"""
-
-# ╔═╡ df5770f9-bcb1-4c47-b5bf-cf1cecbf3889
-begin
-	# Stützstellen aus gegebenen Text-Inputs auslesen
-	xᵢ = parse.([Float64], split(xᵢstring, ","))
-	yᵢ = parse.([Float64], split(yᵢstring, ","))
-	@assert length(xᵢ) == length(yᵢ) "Für $(length(xᵢ)) x-Werte wurden $(length(yᵢ)) y-Werte gegeben."
-	# Anzahl Stützstellen (für später)
-	m = length(xᵢ)
-	# x-Werte für Plots
-	xₘᵢₙ = minimum(xᵢ)
-	xₘₐₓ = maximum(xᵢ)
-	xₘᵢₙ -= (xₘₐₓ - xₘᵢₙ)/10
-	xₘₐₓ += (xₘₐₓ - xₘᵢₙ)/10
-	x = LinRange(xₘᵢₙ, xₘₐₓ, 100)
-	md"""
-	Für $(length(xᵢ)) Stützstellen kann ein Interpolationspolynom $(length(xᵢ) -1)-ten Grades eindeutig bestimmt werden
-	
-	$(plot(xᵢ, yᵢ; seriestype=:scatter, legend=false, title="Stützpunkte", size=(700,400)))
-	"""
-end
-
-# ╔═╡ 49db4cd8-4859-4883-93d4-aecc55887ae4
-begin
-	# String mit Zeichen für die Koeffizienten
-	coefficientnames = "abcdefghijklmnopqrstuvwABCDEFGHIJKLMNOPQRSTUVW"
-	md"""
-	## Berechnung des Interpolationspolynoms ``P`` durch Lösen eines Gleichungssystems
-	
-	Als Ansatz wird ein Polynom der Form
-	
-	##### $(wrap_tex(create_polynomial_string("P(x)", coefficientnames[1:length(xᵢ)], "x")))
-	
-	verwendet.
-	"""
-end
-
-# ╔═╡ 8db247de-80f4-4b17-b6d5-36012719b6dc
-begin
-	# Aufstellen des Gleichungssystems
-	system = zeros(m, m)
-	unknowns = Vector{Char}(undef, m)
-	righthandside = zeros(m)
-	for i in 1:m
-		righthandside[i] = yᵢ[i]
-		unknowns[i] = coefficientnames[i]
-		for j in 1:m
-			system[i,j] = xᵢ[i]^(j-1)
+		for (i,j) in zip(rows, columns)
+			K[i,j] = value
 		end
+		return K
 	end
-	# Output
-	LaTeXStrings.LaTeXString(latexify(system; env=:array) * latexify(unknowns; env=:array) * " = " * latexify(righthandside; env=:array))
-end
+	
+	function central(K::AbstractMatrix)
+		set_cyclic_diagonal!(K, 1, 0.5)
+		set_cyclic_diagonal!(K, -1, -0.5)
+		return K
+	end
+	function forward(K::AbstractMatrix)
+		set_cyclic_diagonal!(K, 1, 1.0)
+		set_cyclic_diagonal!(K, 0, -1.0)
+		return K
+	end
+	function backward(K::AbstractMatrix)
+		set_cyclic_diagonal!(K, 0, 1.0)
+		set_cyclic_diagonal!(K, -1, -1.0)
+		return K
+	end
 
-# ╔═╡ 7eb4aa20-ccb7-404c-a20f-cb53184c7ff4
-begin
-	systemstring = latexify(system; env=:array) * latexify(unknowns; env=:array) * " = " * latexify(righthandside; env=:array)
+	spatialmethodnames = ["vorwärts", "zentral", "rückwärts"]
+	spatialmethods = Dict("vorwärts" => forward, "zentral" => central, "rückwärts" => backward)
+
+		# Zeitliche Diskretisierung
+	function euler_forward(cⁿ::Vector{<:Real}, tⁿ::Real, Δt::Real, K::AbstractMatrix)
+		return cⁿ + Δt .* K * cⁿ
+	end
+	function euler_backward(cⁿ::Vector{<:Real}, tⁿ::Real, Δt::Real, K::AbstractMatrix)
+		return (I - Δt .* K) \ cⁿ
+	end
+	function trapezoidal(cⁿ::Vector{<:Real}, tⁿ::Real, Δt::Real, K::AbstractMatrix)
+		return (I - Δt/2 .* K) \ (cⁿ + Δt/2 .* K * cⁿ)
+	end
+	function RK38(cⁿ::Vector{<:Real}, tⁿ::Real, Δt::Real, K::AbstractMatrix)
+		k₁ = K * cⁿ
+		k₂ = K * (cⁿ + Δt/3 .* k₁)
+		k₃ = K * (cⁿ + Δt/3 .* (3 .* k₂ - k₁))
+		k₄ = K * (cⁿ + Δt .* (k₁ - k₂ + k₃))
+		return cⁿ + Δt/8 .* (k₁ + 3 .* k₂ + 3 .* k₃ + k₄)
+	end
+	
+	timemethodnames = ["Euler vorwärts", "Euler rückwärts", "Trapez-Regel", "3/8-Regel"]
+	timemethods = Dict("Euler vorwärts" => euler_forward, "Euler rückwärts" => euler_backward, "Trapez-Regel" => trapezoidal, "3/8-Regel" => RK38)
 	
 	md"""
-	Aufstellen des Gleichungssystems durch formulieren der Bedingungen
-	##### ``P(x_i) = y_i``
-	für alle Stützpunkte.
-	Damit nehmen die Zeilen des Gleichungssystems die Form
-	##### $(wrap_tex(create_polynomial_string("y_i", coefficientnames[1:length(xᵢ)], "x_i")))
-	an.
-	Und es ergitb sich:
+	## Diskretisierung
 
-	$(wrap_tex(systemstring))
+	### Notation
+	
+	Verwendte Indizes: ``\diamond (x_i, t_n) = \diamond^n_i``
+
+	Die Konzentrationen an den Stützstellen werden zusammengefasst in dem Vektor ``\underline{c}``
+
+	### Räumliche Diskretisierung mit Finiten Differenzen
+
+	Folgender Differenzenquotient wird verwendet:
+	$(@bind spacialmethodname Select(spatialmethodnames; default="zentral"))
+
+	mit der Anzahl Stützstellen: 
+	
+	##### ``N =`` $(@bind N Slider(vcat(10:10:90, 100:50:1000); default=5, show_value=true))
+
+	Mit dem gewählten Stencil wird eine Matrix ``\underline{\underline{K}}`` erstellt, sodass die räumliche Ableitung der Konzentration an den Stützstellen zum Zeitpunkt ``t_n`` beschrieben wird durch:
+
+	##### ``\frac{\partial}{\partial x} \underline{c}^n \approx \frac{1}{\Delta x} \underline{\underline{K}} \, \underline{c}^n``
+
+	### Zeitliche Diskretisierung mit Zeit-Integrations-Verfahren
+
+	Folgendes Verfahren wird verwendet: $(@bind timemethodname Select(timemethodnames, default = "Euler vorwärts"))
+
+	mit der Zeitschrittweite 
+	
+	##### ``Δt =`` $(@bind Δt Slider(0.0005:0.0001:0.01; default=0.1, show_value=true))
+
+	Dieses wird auf das System
+
+	##### ``\frac{\partial}{\partial t}\underline{c} = -\frac{v}{\Delta x} \underline{\underline{K}} \, \underline{c}``
+
+	angewendet.
 	"""
 end
 
-# ╔═╡ 5fbdae9e-25b7-4940-9b56-e453552d983e
+# ╔═╡ 408a0f77-bc2e-460f-bbe3-9c7afb020bb9
 begin
-	# Erneutes Aufstellen des LGS und bestimmen der Lösung mit Zeitmessung
-	# (erneutes Aufstellen, damit die gesamt Zeit gemessen wird)
-	function compute_coefficients()
-		M = zeros(m, m)
-		b = zeros(m)
-		for i in 1:m
-			b[i,1] = yᵢ[i]
-			for j in 1:m
-				M[i,j] = xᵢ[i]^(j-1)
-			end
+	
+	xᵢ = LinRange(0,1,N)
+	cᵢₙᵢ = eval(Meta.parse("(x) -> " * cinitial))
+	c⁰ = cᵢₙᵢ.(xᵢ)
+	clims = (minimum(c⁰), maximum(c⁰))
+	clims = ( clims[1] + 0.2*(clims[1]-clims[2]), clims[2] - 0.2*(clims[1]-clims[2]) )
+	
+
+	function plot_state(c::Vector, t::Real)
+		plot(xᵢ, c; color=:blue, linewidth=3, label=false, xlims=(-0.1,1.1), ylims=clims, size=(700,600), title=md"``t =`` $(round(t; digits=3))", xlabel=L"x", ylabel=L"c")
+	end
+	
+	md"""
+	## Anfangszustand
+
+	$(plot_state(c⁰, 0.0))
+	"""
+end
+
+# ╔═╡ 4ad6b528-84dc-4123-8feb-4d3f575a0437
+begin
+	spatialmethod! = spatialmethods[spacialmethodname]
+	timemethod = timemethods[timemethodname]
+
+	Δx = 1/N
+	K = spzeros(N,N)
+	K = -v/Δx .* spatialmethod!(K)
+	
+	c = deepcopy(c⁰)
+	anim = Animation()
+	t = collect(0:Δt:tₑ)
+	tcomp = 0.0
+
+	frame(anim, plot_state(c, 0.0))
+	for n in 1:length(t)-1
+    	global tcomp += @elapsed begin 
+			global c = timemethod(c, t[n], t[n+1]-t[n], K)
 		end
-		return M\b
-	end
-	t₁ = @elapsed begin
-	coefficients = compute_coefficients()
-	P(x) = sum( x^(i-1)*coefficients[i] for i in 1:m )
-	y₁ = P.(x)
+		mod(100*(t[n+1]/tₑ), 1) ≈ 0 ? frame(anim, plot_state(c, t[n+1])) : nothing
 	end
 
-	solution_string = latexify(unknowns; env=:array) * " = " * latexify(coefficients; env=:array)
-
-	md"""
-	Die Berechnung der Werte für die Darstellung hat **$(t₁) s** gedauert.
-	
-	Ergebnis:
-
-	$(wrap_tex(solution_string))
-
-	$(wrap_tex(create_polynomial_string("P(x)", coefficients, "x")))
-	"""
-end
-
-# ╔═╡ ab9d92ba-643f-402b-9939-3e4d006bbbed
-begin
-	p₁ = plot(xᵢ, yᵢ; seriestype=:scatter, legend=false, title="Ergebnis", size=(700,400), xlabel=md"``x``", ylabel=md"``P(x)``")
-	plot!(p₁, x, y₁; seriestype=:line, legend=false, linewidth=2)
-end
-
-# ╔═╡ 42def42d-4058-4cca-be2e-0356925f31b9
-begin
-	function L(n,x)
-		res = 1
-		for j = 1:m
-			j == n ? continue : nothing
-			res *= (x-xᵢ[j]) / (xᵢ[n]-xᵢ[j])
-		end
-		return res
-	end
-	md"""
-	## Berechnung des Interpolationspolynoms ``P_L`` aus Lagrange-Basis-Polynomen
-	
-	Lagrange-Basis-Polynome:
-	##### ``L_n(x) = \prod\limits_{j, j\ne n} \frac{x-x_j}{x_n-x_j}``
-	"""
-end
-
-# ╔═╡ e99c424e-dd02-4de1-ade1-af43c99ea16d
-begin
-	function Pₗ(x)
-		return sum( yᵢ[i]*L(i,x) for i in 1:m )
-	end
+	g = gif(deepcopy(anim), fps=5; show_msg=false, loop=-1)
 	
 	md"""
-	Interpolations-Polynom:
-	##### ``P_L(x) = \sum\limits_i y_iL_i(x)``
-	"""
-end
+	Die Berechnung hat **$(tcomp) s** gedauert.
 
-# ╔═╡ 77d77fd0-f875-4551-8774-160d70f1e090
-begin
-	t₂ = @elapsed begin
-	y₂ = Pₗ.(x)
-	end
-	
-	p₂ = plot(xᵢ, yᵢ; seriestype=:scatter, legend=false, title="Ergebnis", xlabel=md"``x``", ylabel=md"``P_L(x)``")
-	plot!(p₂, x, y₂; seriestype=:line, legend=false, linewidth=2, size=(700,400))
-	
-	md"""
-	Die Berechnung der Werte für die Darstellung hat **$(t₂) s** gedauert.
-	
-	Ergebnis:
-
-	$(p₂)
-	"""
-end
-
-# ╔═╡ 4149babc-efe6-4bf9-9f57-f180eea6df04
-begin
-	# Lₙ(x)
-	pₗ₁ = plot(xᵢ, yᵢ; seriestype=:scatter, legend=false, title=md"``L_n(x)``", xlabel=md"``x``")
-	hline!(pₗ₁, [0,1]; color=:black)
-	vline!(pₗ₁, xᵢ; color=:black)
-	for i in 1:m
-		y = L.([i], x)
-		plot!(pₗ₁, x, y; seriestype=:line, legend=false, palette=:tab20, linewidth=2)
-	end
-	# yₙLₙ(x)
-	pₗ₂ = plot(xᵢ, yᵢ; seriestype=:scatter, legend=false, title=md"``y_nL_n(x)``", xlabel=md"``x``")
-	hline!(pₗ₂, [0]; color=:black)
-	vline!(pₗ₂, xᵢ; color=:black)
-	for i in 1:m
-		y = L.([i], x) .* yᵢ[i]
-		plot!(pₗ₂, x, y; seriestype=:line, legend=false, palette=:tab20, linewidth=2)
-	end
-	# P(x)
-	pₗ₃ = plot(xᵢ, yᵢ; seriestype=:scatter, legend=false, title=md"``P_L(x)``", xlabel=md"``x``")
-	plot!(pₗ₃, x, y₂; seriestype=:line, legend=false, linewidth=2)
-	# Alle zusammen
-	md"""
-	## Darstellung des Aufbaus des Polynoms:
-
-	$(plot(pₗ₁, pₗ₂, pₗ₃ ; layout=(3,1), size=(700, 400*3)))
+	$(g)
 	"""
 end
 
@@ -242,24 +216,25 @@ PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
 ColorSchemes = "35d6a980-a343-548e-a6ea-1d62b119f2f4"
 LaTeXStrings = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
-Latexify = "23fbe1c1-3f47-55db-b15f-69d7ec21a316"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
+SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 
 [compat]
-ColorSchemes = "~3.19.0"
+ColorSchemes = "~3.20.0"
 LaTeXStrings = "~1.3.0"
-Latexify = "~0.15.17"
-Plots = "~1.35.3"
-PlutoUI = "~0.7.43"
+Plots = "~1.38.0"
+PlutoUI = "~0.7.49"
 """
 
 # ╔═╡ 00000000-0000-0000-0000-000000000002
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.7.3"
+julia_version = "1.9.0"
 manifest_format = "2.0"
+project_hash = "27a69258c444014612677c9d2bcc151e3dfdcb95"
 
 [[deps.AbstractPlutoDingetjes]]
 deps = ["Pkg"]
@@ -269,6 +244,7 @@ version = "1.1.4"
 
 [[deps.ArgTools]]
 uuid = "0dad84c5-d112-42e6-8d28-ef12dabb789f"
+version = "1.1.1"
 
 [[deps.Artifacts]]
 uuid = "56f22d72-fd6d-98f1-02f0-08ddc0907c33"
@@ -277,9 +253,9 @@ uuid = "56f22d72-fd6d-98f1-02f0-08ddc0907c33"
 uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
 
 [[deps.BitFlags]]
-git-tree-sha1 = "84259bb6172806304b9101094a7cc4bc6f56dbc6"
+git-tree-sha1 = "43b1a4a8f797c1cddadf60499a8a077d4af2cd2d"
 uuid = "d1d4a3ce-64b1-5f1a-9ba4-7e7e69966f35"
-version = "0.1.5"
+version = "0.1.7"
 
 [[deps.Bzip2_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -312,10 +288,10 @@ uuid = "944b1d66-785c-5afd-91f1-9de20f533193"
 version = "0.7.0"
 
 [[deps.ColorSchemes]]
-deps = ["ColorTypes", "ColorVectorSpace", "Colors", "FixedPointNumbers", "Random"]
-git-tree-sha1 = "1fd869cc3875b57347f7027521f561cf46d1fcd8"
+deps = ["ColorTypes", "ColorVectorSpace", "Colors", "FixedPointNumbers", "Random", "SnoopPrecompile"]
+git-tree-sha1 = "aa3edc8f8dea6cbfa176ee12f7c2fc82f0608ed3"
 uuid = "35d6a980-a343-548e-a6ea-1d62b119f2f4"
-version = "3.19.0"
+version = "3.20.0"
 
 [[deps.ColorTypes]]
 deps = ["FixedPointNumbers", "Random"]
@@ -331,19 +307,20 @@ version = "0.9.9"
 
 [[deps.Colors]]
 deps = ["ColorTypes", "FixedPointNumbers", "Reexport"]
-git-tree-sha1 = "417b0ed7b8b838aa6ca0a87aadf1bb9eb111ce40"
+git-tree-sha1 = "fc08e5930ee9a4e03f84bfb5211cb54e7769758a"
 uuid = "5ae59095-9a9b-59fe-a467-6f913c188581"
-version = "0.12.8"
+version = "0.12.10"
 
 [[deps.Compat]]
 deps = ["Dates", "LinearAlgebra", "UUIDs"]
-git-tree-sha1 = "3ca828fe1b75fa84b021a7860bd039eaea84d2f2"
+git-tree-sha1 = "00a2cccc7f098ff3b66806862d275ca3db9e6e5a"
 uuid = "34da2185-b29b-5c13-b0c7-acf172513d20"
-version = "4.3.0"
+version = "4.5.0"
 
 [[deps.CompilerSupportLibraries_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "e66e0078-7015-5450-92f7-15fbd957f2ae"
+version = "1.0.2+0"
 
 [[deps.Contour]]
 git-tree-sha1 = "d05d9e7b7aedff4e5b51a029dced05cfb6125781"
@@ -351,9 +328,9 @@ uuid = "d38c429a-6771-53c6-b99e-75d170b6e991"
 version = "0.6.2"
 
 [[deps.DataAPI]]
-git-tree-sha1 = "46d2680e618f8abd007bce0c3026cb0c4a8f2032"
+git-tree-sha1 = "e8119c1a33d267e16108be441a287a6981ba1630"
 uuid = "9a962f9c-6df0-11e9-0e5d-c546b8b5ee8a"
-version = "1.12.0"
+version = "1.14.0"
 
 [[deps.DataStructures]]
 deps = ["Compat", "InteractiveUtils", "OrderedCollections"]
@@ -367,17 +344,20 @@ uuid = "ade2ca70-3891-5945-98fb-dc099432e06a"
 
 [[deps.DelimitedFiles]]
 deps = ["Mmap"]
+git-tree-sha1 = "9e2f36d3c96a820c678f2f1f1782582fcf685bae"
 uuid = "8bb1440f-4735-579b-a4ab-409b98df4dab"
+version = "1.9.1"
 
 [[deps.DocStringExtensions]]
 deps = ["LibGit2"]
-git-tree-sha1 = "5158c2b41018c5f7eb1470d558127ac274eca0c9"
+git-tree-sha1 = "2fb1e02f2b635d0845df5d7c167fec4dd739b00d"
 uuid = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
-version = "0.9.1"
+version = "0.9.3"
 
 [[deps.Downloads]]
 deps = ["ArgTools", "FileWatching", "LibCURL", "NetworkOptions"]
 uuid = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
+version = "1.6.0"
 
 [[deps.Expat_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -437,16 +417,16 @@ uuid = "0656b61e-2033-5cc2-a64a-77c0f6c09b89"
 version = "3.3.8+0"
 
 [[deps.GR]]
-deps = ["Base64", "DelimitedFiles", "GR_jll", "HTTP", "JSON", "Libdl", "LinearAlgebra", "Pkg", "Preferences", "Printf", "Random", "Serialization", "Sockets", "Test", "UUIDs"]
-git-tree-sha1 = "cf7bf90e483228f6c988e474b420064e5351b892"
+deps = ["Artifacts", "Base64", "DelimitedFiles", "Downloads", "GR_jll", "HTTP", "JSON", "Libdl", "LinearAlgebra", "Pkg", "Preferences", "Printf", "Random", "Serialization", "Sockets", "TOML", "Tar", "Test", "UUIDs", "p7zip_jll"]
+git-tree-sha1 = "bcc737c4c3afc86f3bbc55eb1b9fabcee4ff2d81"
 uuid = "28b8d3ca-fb5f-59d9-8090-bfdbd6d07a71"
-version = "0.69.4"
+version = "0.71.2"
 
 [[deps.GR_jll]]
 deps = ["Artifacts", "Bzip2_jll", "Cairo_jll", "FFMPEG_jll", "Fontconfig_jll", "GLFW_jll", "JLLWrappers", "JpegTurbo_jll", "Libdl", "Libtiff_jll", "Pixman_jll", "Pkg", "Qt5Base_jll", "Zlib_jll", "libpng_jll"]
-git-tree-sha1 = "bc9f7725571ddb4ab2c4bc74fa397c1c5ad08943"
+git-tree-sha1 = "64ef06fa8f814ff0d09ac31454f784c488e22b29"
 uuid = "d2c73de3-f751-5644-a686-071e5b155ba9"
-version = "0.69.1+0"
+version = "0.71.2+0"
 
 [[deps.Gettext_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "JLLWrappers", "Libdl", "Libiconv_jll", "Pkg", "XML2_jll"]
@@ -473,9 +453,9 @@ version = "1.0.2"
 
 [[deps.HTTP]]
 deps = ["Base64", "CodecZlib", "Dates", "IniFile", "Logging", "LoggingExtras", "MbedTLS", "NetworkOptions", "OpenSSL", "Random", "SimpleBufferStream", "Sockets", "URIs", "UUIDs"]
-git-tree-sha1 = "4abede886fcba15cd5fd041fef776b230d004cee"
+git-tree-sha1 = "2e13c9956c82f5ae8cbdb8335327e63badb8c4ff"
 uuid = "cd3eb016-35fb-5094-929b-558a96fad6f3"
-version = "1.4.0"
+version = "1.6.2"
 
 [[deps.HarfBuzz_jll]]
 deps = ["Artifacts", "Cairo_jll", "Fontconfig_jll", "FreeType2_jll", "Glib_jll", "Graphite2_jll", "JLLWrappers", "Libdl", "Libffi_jll", "Pkg"]
@@ -577,10 +557,12 @@ version = "0.15.17"
 [[deps.LibCURL]]
 deps = ["LibCURL_jll", "MozillaCACerts_jll"]
 uuid = "b27032c2-a3e7-50c8-80cd-2d36dbcbfd21"
+version = "0.6.3"
 
 [[deps.LibCURL_jll]]
 deps = ["Artifacts", "LibSSH2_jll", "Libdl", "MbedTLS_jll", "Zlib_jll", "nghttp2_jll"]
 uuid = "deac9b47-8bc7-5906-a0fe-35ac56dc84c0"
+version = "7.84.0+0"
 
 [[deps.LibGit2]]
 deps = ["Base64", "NetworkOptions", "Printf", "SHA"]
@@ -589,6 +571,7 @@ uuid = "76f85450-5226-5b5a-8eaa-529ad045b433"
 [[deps.LibSSH2_jll]]
 deps = ["Artifacts", "Libdl", "MbedTLS_jll"]
 uuid = "29816b5a-b9ab-546f-933c-edad1886dfa8"
+version = "1.10.2+0"
 
 [[deps.Libdl]]
 uuid = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
@@ -607,9 +590,9 @@ version = "1.8.7+0"
 
 [[deps.Libglvnd_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg", "Xorg_libX11_jll", "Xorg_libXext_jll"]
-git-tree-sha1 = "7739f837d6447403596a75d19ed01fd08d6f56bf"
+git-tree-sha1 = "6f73d1dd803986947b2c750138528a999a6c7733"
 uuid = "7e76a0d4-f3c7-5321-8279-8d96eeed0f29"
-version = "1.3.0+3"
+version = "1.6.0+0"
 
 [[deps.Libgpg_error_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -642,23 +625,28 @@ uuid = "38a345b3-de98-5d2b-a5d3-14cd9215e700"
 version = "2.36.0+0"
 
 [[deps.LinearAlgebra]]
-deps = ["Libdl", "libblastrampoline_jll"]
+deps = ["Libdl", "OpenBLAS_jll", "libblastrampoline_jll"]
 uuid = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 
 [[deps.LogExpFunctions]]
 deps = ["ChainRulesCore", "ChangesOfVariables", "DocStringExtensions", "InverseFunctions", "IrrationalConstants", "LinearAlgebra"]
-git-tree-sha1 = "94d9c52ca447e23eac0c0f074effbcd38830deb5"
+git-tree-sha1 = "946607f84feb96220f480e0422d3484c49c00239"
 uuid = "2ab3a3ac-af41-5b50-aa03-7779005ae688"
-version = "0.3.18"
+version = "0.3.19"
 
 [[deps.Logging]]
 uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
 
 [[deps.LoggingExtras]]
 deps = ["Dates", "Logging"]
-git-tree-sha1 = "5d4d2d9904227b8bd66386c1138cf4d5ffa826bf"
+git-tree-sha1 = "cedb76b37bc5a6c702ade66be44f831fa23c681e"
 uuid = "e6f89c97-d47a-5376-807f-9c37f3926c36"
-version = "0.4.9"
+version = "1.0.0"
+
+[[deps.MIMEs]]
+git-tree-sha1 = "65f28ad4b594aebe22157d6fac869786a255b7eb"
+uuid = "6c6e2e6c-3030-632d-7369-2d6c69616d65"
+version = "0.1.4"
 
 [[deps.MacroTools]]
 deps = ["Markdown", "Random"]
@@ -672,18 +660,19 @@ uuid = "d6f4376e-aef5-505a-96c1-9c027394607a"
 
 [[deps.MbedTLS]]
 deps = ["Dates", "MbedTLS_jll", "MozillaCACerts_jll", "Random", "Sockets"]
-git-tree-sha1 = "6872f9594ff273da6d13c7c1a1545d5a8c7d0c1c"
+git-tree-sha1 = "03a9b9718f5682ecb107ac9f7308991db4ce395b"
 uuid = "739be429-bea8-5141-9913-cc70e7f3736d"
-version = "1.1.6"
+version = "1.1.7"
 
 [[deps.MbedTLS_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "c8ffd9c3-330d-5841-b78e-0817d7145fa1"
+version = "2.28.2+0"
 
 [[deps.Measures]]
-git-tree-sha1 = "e498ddeee6f9fdb4551ce855a46f54dbd900245f"
+git-tree-sha1 = "c13304c81eec1ed3af7fc20e75fb6b26092a1102"
 uuid = "442fdcdd-2543-5da2-b0f3-8c86c306513e"
-version = "0.3.1"
+version = "0.3.2"
 
 [[deps.Missings]]
 deps = ["DataAPI"]
@@ -696,6 +685,7 @@ uuid = "a63ad114-7e13-5084-954f-fe012c677804"
 
 [[deps.MozillaCACerts_jll]]
 uuid = "14a3606d-f60d-562e-9121-12d972cd8159"
+version = "2022.10.11"
 
 [[deps.NaNMath]]
 deps = ["OpenLibm_jll"]
@@ -705,6 +695,7 @@ version = "1.0.1"
 
 [[deps.NetworkOptions]]
 uuid = "ca575930-c2e3-43a9-ace4-1e988b2c1908"
+version = "1.2.0"
 
 [[deps.Ogg_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -715,22 +706,24 @@ version = "1.3.5+1"
 [[deps.OpenBLAS_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "Libdl"]
 uuid = "4536629a-c528-5b80-bd46-f80d51c5b363"
+version = "0.3.21+4"
 
 [[deps.OpenLibm_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "05823500-19ac-5b8b-9628-191a04bc5112"
+version = "0.8.1+0"
 
 [[deps.OpenSSL]]
 deps = ["BitFlags", "Dates", "MozillaCACerts_jll", "OpenSSL_jll", "Sockets"]
-git-tree-sha1 = "ebe81469e9d7b471d7ddb611d9e147ea16de0add"
+git-tree-sha1 = "df6830e37943c7aaa10023471ca47fb3065cc3c4"
 uuid = "4d8831e6-92b7-49fb-bdf8-b643e874388c"
-version = "1.2.1"
+version = "1.3.2"
 
 [[deps.OpenSSL_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "e60321e3f2616584ff98f0a4f18d98ae6f89bbb3"
+git-tree-sha1 = "f6e9dba33f9f2c44e08a020b0caf6903be540004"
 uuid = "458c3c95-2e84-50aa-8efc-19380b2a3a95"
-version = "1.1.17+0"
+version = "1.1.19+0"
 
 [[deps.OpenSpecFun_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "JLLWrappers", "Libdl", "Pkg"]
@@ -752,12 +745,13 @@ version = "1.4.1"
 [[deps.PCRE2_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "efcefdf7-47ab-520b-bdef-62a2eaa19f15"
+version = "10.42.0+0"
 
 [[deps.Parsers]]
-deps = ["Dates"]
-git-tree-sha1 = "595c0b811cf2bab8b0849a70d9bd6379cc1cfb52"
+deps = ["Dates", "SnoopPrecompile"]
+git-tree-sha1 = "6466e524967496866901a78fca3f2e9ea445a559"
 uuid = "69de0a69-1ddd-5017-9359-2bf0b02dc9f0"
-version = "2.4.1"
+version = "2.5.2"
 
 [[deps.Pipe]]
 git-tree-sha1 = "6842804e7867b115ca9de748a0cf6b364523c16d"
@@ -771,32 +765,33 @@ uuid = "30392449-352a-5448-841d-b1acce4e97dc"
 version = "0.40.1+0"
 
 [[deps.Pkg]]
-deps = ["Artifacts", "Dates", "Downloads", "LibGit2", "Libdl", "Logging", "Markdown", "Printf", "REPL", "Random", "SHA", "Serialization", "TOML", "Tar", "UUIDs", "p7zip_jll"]
+deps = ["Artifacts", "Dates", "Downloads", "FileWatching", "LibGit2", "Libdl", "Logging", "Markdown", "Printf", "REPL", "Random", "SHA", "Serialization", "TOML", "Tar", "UUIDs", "p7zip_jll"]
 uuid = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
+version = "1.9.0"
 
 [[deps.PlotThemes]]
 deps = ["PlotUtils", "Statistics"]
-git-tree-sha1 = "8162b2f8547bc23876edd0c5181b27702ae58dce"
+git-tree-sha1 = "1f03a2d339f42dca4a4da149c7e15e9b896ad899"
 uuid = "ccf2f8ad-2431-5c83-bf29-c5338b663b6a"
-version = "3.0.0"
+version = "3.1.0"
 
 [[deps.PlotUtils]]
 deps = ["ColorSchemes", "Colors", "Dates", "Printf", "Random", "Reexport", "SnoopPrecompile", "Statistics"]
-git-tree-sha1 = "21303256d239f6b484977314674aef4bb1fe4420"
+git-tree-sha1 = "5b7690dd212e026bbab1860016a6601cb077ab66"
 uuid = "995b91a9-d308-5afd-9ec6-746e21dbc043"
-version = "1.3.1"
+version = "1.3.2"
 
 [[deps.Plots]]
-deps = ["Base64", "Contour", "Dates", "Downloads", "FFMPEG", "FixedPointNumbers", "GR", "JLFzf", "JSON", "LaTeXStrings", "Latexify", "LinearAlgebra", "Measures", "NaNMath", "Pkg", "PlotThemes", "PlotUtils", "Printf", "REPL", "Random", "RecipesBase", "RecipesPipeline", "Reexport", "RelocatableFolders", "Requires", "Scratch", "Showoff", "SnoopPrecompile", "SparseArrays", "Statistics", "StatsBase", "UUIDs", "UnicodeFun", "Unzip"]
-git-tree-sha1 = "524d9ff1b2f4473fef59678c06f9f77160a204b1"
+deps = ["Base64", "Contour", "Dates", "Downloads", "FFMPEG", "FixedPointNumbers", "GR", "JLFzf", "JSON", "LaTeXStrings", "Latexify", "LinearAlgebra", "Measures", "NaNMath", "Pkg", "PlotThemes", "PlotUtils", "Preferences", "Printf", "REPL", "Random", "RecipesBase", "RecipesPipeline", "Reexport", "RelocatableFolders", "Requires", "Scratch", "Showoff", "SnoopPrecompile", "SparseArrays", "Statistics", "StatsBase", "UUIDs", "UnicodeFun", "Unzip"]
+git-tree-sha1 = "513084afca53c9af3491c94224997768b9af37e8"
 uuid = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
-version = "1.35.3"
+version = "1.38.0"
 
 [[deps.PlutoUI]]
-deps = ["AbstractPlutoDingetjes", "Base64", "ColorTypes", "Dates", "Hyperscript", "HypertextLiteral", "IOCapture", "InteractiveUtils", "JSON", "Logging", "Markdown", "Random", "Reexport", "UUIDs"]
-git-tree-sha1 = "2777a5c2c91b3145f5aa75b61bb4c2eb38797136"
+deps = ["AbstractPlutoDingetjes", "Base64", "ColorTypes", "Dates", "FixedPointNumbers", "Hyperscript", "HypertextLiteral", "IOCapture", "InteractiveUtils", "JSON", "Logging", "MIMEs", "Markdown", "Random", "Reexport", "URIs", "UUIDs"]
+git-tree-sha1 = "eadad7b14cf046de6eb41f13c9275e5aa2711ab6"
 uuid = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
-version = "0.7.43"
+version = "0.7.49"
 
 [[deps.Preferences]]
 deps = ["TOML"]
@@ -824,15 +819,15 @@ uuid = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 
 [[deps.RecipesBase]]
 deps = ["SnoopPrecompile"]
-git-tree-sha1 = "612a4d76ad98e9722c8ba387614539155a59e30c"
+git-tree-sha1 = "18c35ed630d7229c5584b945641a73ca83fb5213"
 uuid = "3cdcf5f2-1ef4-517c-9805-6587b60abb01"
-version = "1.3.0"
+version = "1.3.2"
 
 [[deps.RecipesPipeline]]
 deps = ["Dates", "NaNMath", "PlotUtils", "RecipesBase", "SnoopPrecompile"]
-git-tree-sha1 = "9b1c0c8e9188950e66fc28f40bfe0f8aac311fe0"
+git-tree-sha1 = "e974477be88cb5e3040009f3767611bc6357846f"
 uuid = "01d81517-befc-4cb6-b9ec-a95719d0359c"
-version = "0.6.7"
+version = "0.6.11"
 
 [[deps.Reexport]]
 git-tree-sha1 = "45e428421666073eab6f2da5c9d310d99bb12f9b"
@@ -853,6 +848,7 @@ version = "1.3.0"
 
 [[deps.SHA]]
 uuid = "ea8e919c-243c-51af-8825-aaa63cd721ce"
+version = "0.7.0"
 
 [[deps.Scratch]]
 deps = ["Dates"]
@@ -884,12 +880,12 @@ uuid = "6462fe0b-24de-5631-8697-dd941f90decc"
 
 [[deps.SortingAlgorithms]]
 deps = ["DataStructures"]
-git-tree-sha1 = "b3363d7460f7d098ca0912c69b082f75625d7508"
+git-tree-sha1 = "a4ada03f999bd01b3a25dcaa30b2d929fe537e00"
 uuid = "a2af1166-a08f-5f64-846c-94a0d3cef48c"
-version = "1.0.1"
+version = "1.1.0"
 
 [[deps.SparseArrays]]
-deps = ["LinearAlgebra", "Random"]
+deps = ["Libdl", "LinearAlgebra", "Random", "Serialization", "SuiteSparse_jll"]
 uuid = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 
 [[deps.SpecialFunctions]]
@@ -901,6 +897,7 @@ version = "2.1.7"
 [[deps.Statistics]]
 deps = ["LinearAlgebra", "SparseArrays"]
 uuid = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
+version = "1.9.0"
 
 [[deps.StatsAPI]]
 deps = ["LinearAlgebra"]
@@ -914,13 +911,20 @@ git-tree-sha1 = "d1bf48bfcc554a3761a133fe3a9bb01488e06916"
 uuid = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 version = "0.33.21"
 
+[[deps.SuiteSparse_jll]]
+deps = ["Artifacts", "Libdl", "Pkg", "libblastrampoline_jll"]
+uuid = "bea87d4a-7f5b-5778-9afe-8cc45184846c"
+version = "5.10.1+6"
+
 [[deps.TOML]]
 deps = ["Dates"]
 uuid = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
+version = "1.0.3"
 
 [[deps.Tar]]
 deps = ["ArgTools", "SHA"]
 uuid = "a4e569a6-e804-4fa4-b0f3-eef7a1d5b13e"
+version = "1.10.0"
 
 [[deps.TensorCore]]
 deps = ["LinearAlgebra"]
@@ -934,9 +938,9 @@ uuid = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [[deps.TranscodingStreams]]
 deps = ["Random", "Test"]
-git-tree-sha1 = "8a75929dcd3c38611db2f8d08546decb514fcadf"
+git-tree-sha1 = "e4bdc63f5c6d62e80eb1c0043fcc0360d5950ff7"
 uuid = "3bb67fe8-82b1-5028-8e26-92a6c54297fa"
-version = "0.9.9"
+version = "0.9.10"
 
 [[deps.Tricks]]
 git-tree-sha1 = "6bac775f2d42a611cdfcd1fb217ee719630c4175"
@@ -944,9 +948,9 @@ uuid = "410a4b4d-49e4-4fbc-ab6d-cb71b17b3775"
 version = "0.1.6"
 
 [[deps.URIs]]
-git-tree-sha1 = "e59ecc5a41b000fa94423a578d29290c7266fc10"
+git-tree-sha1 = "ac00576f90d8a259f2c9d823e91d1de3fd44d348"
 uuid = "5c2747f8-b7ea-4ff2-ba2e-563bfd36b1d4"
-version = "1.4.0"
+version = "1.4.1"
 
 [[deps.UUIDs]]
 deps = ["Random", "SHA"]
@@ -1119,6 +1123,7 @@ version = "1.4.0+3"
 [[deps.Zlib_jll]]
 deps = ["Libdl"]
 uuid = "83775a58-1f1d-513f-b197-d71354ab007a"
+version = "1.2.13+0"
 
 [[deps.Zstd_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -1145,8 +1150,9 @@ uuid = "0ac62f75-1d6f-5e53-bd7c-93b484bb37c0"
 version = "0.15.1+0"
 
 [[deps.libblastrampoline_jll]]
-deps = ["Artifacts", "Libdl", "OpenBLAS_jll"]
+deps = ["Artifacts", "Libdl"]
 uuid = "8e850b90-86db-534c-a0d3-1478176c7d93"
+version = "5.7.0+0"
 
 [[deps.libfdk_aac_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -1169,10 +1175,12 @@ version = "1.3.7+1"
 [[deps.nghttp2_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "8e850ede-7688-5339-a07c-302acd2aaf8d"
+version = "1.48.0+0"
 
 [[deps.p7zip_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
+version = "17.4.0+0"
 
 [[deps.x264_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -1194,17 +1202,10 @@ version = "1.4.1+0"
 """
 
 # ╔═╡ Cell order:
-# ╟─ce6b4784-457c-11ed-097c-cb770363efc8
-# ╟─93dfc702-3463-4ee0-bc09-18035b8e1495
-# ╟─df5770f9-bcb1-4c47-b5bf-cf1cecbf3889
-# ╟─49db4cd8-4859-4883-93d4-aecc55887ae4
-# ╟─7eb4aa20-ccb7-404c-a20f-cb53184c7ff4
-# ╟─8db247de-80f4-4b17-b6d5-36012719b6dc
-# ╟─5fbdae9e-25b7-4940-9b56-e453552d983e
-# ╟─ab9d92ba-643f-402b-9939-3e4d006bbbed
-# ╟─42def42d-4058-4cca-be2e-0356925f31b9
-# ╟─e99c424e-dd02-4de1-ade1-af43c99ea16d
-# ╟─77d77fd0-f875-4551-8774-160d70f1e090
-# ╟─4149babc-efe6-4bf9-9f57-f180eea6df04
+# ╟─73535a84-86a8-11ed-1244-8d2f5d14cc66
+# ╟─57866b31-4ea7-438e-b114-d7510be88a98
+# ╟─02017e43-bcb6-4e9c-8655-6fd79da6dd75
+# ╟─408a0f77-bc2e-460f-bbe3-9c7afb020bb9
+# ╟─4ad6b528-84dc-4123-8feb-4d3f575a0437
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
