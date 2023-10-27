@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.19.26
+# v0.19.27
 
 using Markdown
 using InteractiveUtils
@@ -48,7 +48,7 @@ begin
 	function plot_given_geometry(; kwargs...)
 		x = 0:0.01:3
 		r = exact_radius.(x)
-		p = plot(vcat(x, [3.0]), vcat(r, [0.0]); label="Träger", size=(700,300), color=:black, linewidth=2, ylims=(-0.2,0.2), xlabel=L"x\;[m]", ylabel=L"r\;[m]", kwargs...)
+		p = plot(vcat(x, [3.0]), vcat(r, [0.0]); label="Träger", size=(700,300), color=:black, linewidth=2, ylims=(-0.2,0.2), xlabel=md"``x\;[m]``", ylabel=L"r\;[m]", kwargs...)
 		plot!(p, vcat(x, [3.0]), -vcat(r, [0.0]); color=:black, linewidth=2, label=false)
 		scatter!(p, xᵣ, rᵣ; color=:blue, label="Gegebene Werte")
 		return x, r, p
@@ -135,7 +135,7 @@ begin
 	end
 	r = create_interpolation_polynomial(subintervals)
 
-	xₚ, rₚ, p₀ = plot_given_geometry(; size=(700,300))
+	xₚ, rₚ, p₀ = plot_given_geometry(; size=(680,300))
 	plot!(p₀, xₚ, r.(xₚ); color=:red, linewidth=2, label=L"r(x)")
 
 	md"""
@@ -146,9 +146,8 @@ end
 
 # ╔═╡ 3b32b33b-d9af-4f99-a95c-9a575bd97ff0
 begin
-
 	md"""
-	- **Differenzenquotienten**: Ein zentrale Differenzen quotient wird zur Schätzung der zweten Aleitung einer Beispiel Funktion ``u(x) = \frac{4x^3}{\pi r(x) ^4}`` genutzt. Dabei wird eine Unterteilung in $(@bind Ndq Slider(10:10:1000; show_value=true, default=300)) Teilintervalle verwendet.
+	- **Differenzenquotienten**: Ein zentrale Differenzen quotient wird zur Schätzung der zweten Aleitung einer Beispiel Funktion ``u(x) = \frac{4x^3}{\pi r(x) ^4}`` genutzt. Für eine Unterteilung in $( @bind Ndq Select([10,15,20,25,50,100,200,500,1000]; default=200) ) Teilintervalle ergibt sich zum Beispiel:
 	"""
 end
 
@@ -166,7 +165,7 @@ begin
 		return ε, xᵢ, ∂²ₓuᵢ, ∂²ₓuᵢᵣₑ, Eᵢ
 	end
 	ε, xᵢ, ∂²ₓuᵢ, ∂²ₓuᵢᵣₑ, Eᵢ = compute_finite_differences(Ndq)
-	p₁ = plot(xₚ, ∂²ₓu.(xₚ); color=:blue, linewidth=2, label=L"u''(x)", ylabel=L"u", xlabel=L"x\;[m]", size=(700,300))
+	p₁ = plot(xₚ, ∂²ₓu.(xₚ); color=:blue, linewidth=2, label=L"u''(x)", ylabel=L"u", xlabel=L"x\;[m]", size=(680,300))
 	scatter!(p₁, xᵢ, ∂²ₓuᵢ; color=:red, linewidth=2, label=L"DQ")
 
 	md"""
@@ -198,15 +197,15 @@ begin
 	Igauss2 = summed_gauss2.(Nᵢₙₜ)
 	Igauss3 = summed_gauss3.(Nᵢₙₜ)
 
-	p₃ = scatter(Nᵢₙₜ, Itrapez; linewidth=2, label=L"Trapez", ylabel=L"I", xlabel=L"N", size=(700,300))
-	scatter!(p₃, Nᵢₙₜ, Isimpson; linewidth=2, label=L"Simpson")
-	scatter!(p₃, Nᵢₙₜ, Igauss2; linewidth=2, label=L"Gauss\; n_{GP}=2")
-	scatter!(p₃, Nᵢₙₜ, Igauss3; linewidth=2, label=L"Gauss\; n_{GP}=3")
+	p₃ = scatter(log10.(Nᵢₙₜ), Itrapez; linewidth=2, label=L"Trapez", ylabel=L"I", xlabel=L"\lg(N)  = \lg(l\varepsilon^{-1})", size=(680,300))
+	scatter!(p₃, log10.(Nᵢₙₜ), Isimpson; linewidth=2, label=L"Simpson")
+	scatter!(p₃, log10.(Nᵢₙₜ), Igauss2; linewidth=2, label=L"Gauss\; n_{GP}=2")
+	scatter!(p₃, log10.(Nᵢₙₜ), Igauss3; linewidth=2, label=L"Gauss\; n_{GP}=3")
 
 	Iref = summed_gauss3.(10000)
 	error(I) = abs(I-Iref)/abs(Iref)
 	
-	p₄ = scatter(log10.(Nᵢₙₜ), log10.(error.(Itrapez)); linewidth=2, label=L"Trapez", ylabel=L"\lg(E)", xlabel=L"\lg(N)  = \lg(l\varepsilon^{-1})", size=(700,300))
+	p₄ = scatter(log10.(Nᵢₙₜ), log10.(error.(Itrapez)); linewidth=2, label=L"Trapez", ylabel=L"\lg(E)", xlabel=L"\lg(N)  = \lg(l\varepsilon^{-1})", size=(680,300))
 	scatter!(p₄, log10.(Nᵢₙₜ), log10.(error.(Isimpson)); linewidth=2, label=L"Simpson")
 	scatter!(p₄, log10.(Nᵢₙₜ), log10.(error.(Igauss2)); linewidth=2, label=L"Gauss\; n_{GP}=2")
 	scatter!(p₄, log10.(Nᵢₙₜ), log10.(error.(Igauss3)); linewidth=2, label=L"Gauss\; n_{GP}=3")
@@ -226,10 +225,15 @@ begin
 	Um das Konvergenzverhalten besser untersuchen zu können, wird der Fehler abgeschätzt. Dazu wird eine Referenzlösung genutzt, die durch eine Approximation (Gauß-Quadratur mit ``n_\text{GP} = 3`` für 10000 Teilintervalle) ermittelt wird. Der Fehler ergibt sich dann zu ``E = \frac{|I - I_\text{ref}|}{|I_\text{ref}|}``:
 
 	$(p₄)
+	"""
+end
 
+# ╔═╡ 22c3e9ef-a4de-4199-a1f8-6b3d948ea2fb
+begin
+	md"""	
 	Als nächstes wird ein Fehler als Grenzwert festgelegt: 
 	
-	``E_\text{max} = 10``^ $(@bind Emaxpot Slider(-1:-1:-10; show_value=true))
+	``E_\text{max} = 10``^ $(@bind Emaxpot Select(collect(-1:-1:-10)))
 	"""
 end
 
@@ -1330,6 +1334,7 @@ version = "1.4.1+0"
 # ╟─3b32b33b-d9af-4f99-a95c-9a575bd97ff0
 # ╟─a8854623-6687-4d04-9f6c-65290b63e4e4
 # ╟─7a0d233c-f6e5-4827-83b2-31dcc7b5303f
+# ╟─22c3e9ef-a4de-4199-a1f8-6b3d948ea2fb
 # ╟─1b8382ed-e990-4b1a-9aad-d36bd87c7b47
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

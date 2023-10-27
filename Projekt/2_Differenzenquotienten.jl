@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.19.26
+# v0.19.27
 
 using Markdown
 using InteractiveUtils
@@ -48,7 +48,7 @@ begin
 	function plot_given_geometry(; kwargs...)
 		x = 0:0.01:3
 		r = exact_radius.(x)
-		p = plot(vcat(x, [3.0]), vcat(r, [0.0]); label="Träger", size=(700,300), color=:black, linewidth=2, ylims=(-0.2,0.2), xlabel=L"x\;[m]", ylabel=L"r\;[m]", kwargs...)
+		p = plot(vcat(x, [3.0]), vcat(r, [0.0]); label="Träger", size=(700,300), color=:black, linewidth=2, ylims=(-0.2,0.2), xlabel=md"``x\;[m]``", ylabel=L"r\;[m]", kwargs...)
 		plot!(p, vcat(x, [3.0]), -vcat(r, [0.0]); color=:black, linewidth=2, label=false)
 		scatter!(p, xᵣ, rᵣ; color=:blue, label="Gegebene Werte")
 		return x, r, p
@@ -135,7 +135,7 @@ begin
 	end
 	r = create_interpolation_polynomial(subintervals)
 
-	xₚ, rₚ, p₀ = plot_given_geometry(; size=(700,300))
+	xₚ, rₚ, p₀ = plot_given_geometry(; size=(680,300))
 	plot!(p₀, xₚ, r.(xₚ); color=:red, linewidth=2, label=L"r(x)")
 
 
@@ -148,11 +148,11 @@ end
 # ╔═╡ 6aafcd40-48cd-4366-bff9-422e615aafaa
 begin
 	u(x) = (4*x^3)/(π*r(x))
-	p₁ = plot(xₚ, u.(xₚ); color=:blue, linewidth=2, label=L"u(x)", ylabel=L"u", xlabel=L"x\;[m]", size=(700,300))
+	p₁ = plot(xₚ, u.(xₚ); color=:blue, linewidth=2, label=L"u(x)", ylabel=L"u", xlabel=L"x\;[m]", size=(680,300))
 
 	∂ₓu(x) = ∂ⁿₓ(u, x, 1)
 	∂²ₓu(x) = ∂ⁿₓ(u, x, 2)
-	p₂ = plot(xₚ, ∂ₓu.(xₚ); color=:blue, linewidth=2, label=L"u'(x)", ylabel=L"u", xlabel=L"x\;[m]", size=(700,300))
+	p₂ = plot(xₚ, ∂ₓu.(xₚ); color=:blue, linewidth=2, label=L"u'(x)", ylabel=L"u", xlabel=L"x\;[m]", size=(680,300))
 	plot!(p₂, xₚ, ∂²ₓu.(xₚ); color=:red, linewidth=2, label=L"u''(x)")
 	
 	md"""
@@ -169,10 +169,15 @@ begin
 	Als Referenzlösung werden die ersten beiden Ableitungen von ``u`` mittels "Automatic Differentiation" ermittelt:
 
 	$(plot(p₂))
+	"""
+end
 
+# ╔═╡ 632203c9-2e3c-4892-8cc3-f33ce38c54b9
+begin
+	md"""
 	## Approximation der zweiten Ableitung
 
-	Folgende Ergebnisse ergeben sich für einen zentralen Differenzenquotienten und eine Unterteilung in ``N=`` $(@bind N Slider(10:10:1000; show_value=true, default=10)) Teilintervalle.
+	Folgende Ergebnisse ergeben sich für einen zentralen Differenzenquotienten und eine Unterteilung in ``N=`` $( @bind N Select([10,15,20,25,50,100,200,500,1000]; default=10) ) Teilintervalle.
 	"""
 end
 
@@ -190,10 +195,10 @@ begin
 
 	ε, xᵢ, ∂²ₓuᵢ, ∂²ₓuᵢᵣₑ, Eᵢ = compute_finite_differences(N)
 	
-	p₃ = plot(xₚ, ∂²ₓu.(xₚ); color=:blue, linewidth=2, label=L"u''(x)", ylabel=L"u", xlabel=L"x\;[m]", size=(700,300))
+	p₃ = plot(xₚ, ∂²ₓu.(xₚ); color=:blue, linewidth=2, label=L"u''(x)", ylabel=L"u", xlabel=L"x\;[m]", size=(680,300))
 	scatter!(p₃, xᵢ, ∂²ₓuᵢ; color=:red, linewidth=2, label=L"DQ")
 
-	p₄ = scatter(xᵢ, Eᵢ; color=:red, linewidth=2, ylabel=L"E", xlabel=L"x\;[m]", size=(700,300), label=false)
+	p₄ = scatter(xᵢ, Eᵢ; color=:red, linewidth=2, ylabel=L"E", xlabel=L"x\;[m]", size=(680,300), label=false)
 	
 	md"""
 	``\varepsilon = \frac{l}{N} = `` $(ε)
@@ -207,7 +212,12 @@ begin
 	Maximaler Fehler: $(maximum(Eᵢ))
 
 	Mittlerer Fehler: $(mean(Eᵢ))
+	"""
+end
 
+# ╔═╡ 50355497-3926-498d-b8ab-49ecf3ea8ac7
+begin
+	md"""
 	Und ohne die $(@bind nfilter Slider(0:1:15; show_value=true, default=0)) größten Fehler (mindestens einer wird behalten) ergibt sich:
 	"""
 end
@@ -234,11 +244,6 @@ end
 
 # ╔═╡ 3799ff0f-32c9-4597-b8dd-2d4fe23bb7f3
 begin
-	function compute_errors(N::Integer)
-		ε, xᵢ, ∂²ₓuᵢ, ∂²ₓuᵢᵣₑ, Eᵢ = compute_finite_differences(N)
-		Ef = filter_errors(Eᵢ)
-		return ε, maximum(Ef), mean(Ef)
-	end
 	md"""
 	Als nächstes werden der maximale und der mittlere Fehler für verschiedene Anzahlen an Stützstellen untersucht:
 	``N\in`` [$(@bind Nrange Select([10:1:20, 10:10:100, 100:100:1000, 1000:1000:10000]; ))
@@ -247,14 +252,20 @@ end
 
 # ╔═╡ ef011457-5d5d-4881-a280-b4656939d4dd
 begin
+	function compute_errors(N::Integer)
+		ε, xᵢ, ∂²ₓuᵢ, ∂²ₓuᵢᵣₑ, Eᵢ = compute_finite_differences(N)
+		Ef = filter_errors(Eᵢ)
+		return ε, maximum(Ef), mean(Ef)
+	end
+	
 	Emaxmean = compute_errors.(Nrange)
 	εE = collect(E[1] for E in Emaxmean)
 	Emax = collect(E[2] for E in Emaxmean)
 	Emean = collect(E[3] for E in Emaxmean)
 
-	p₅ = scatter(log10.(Nrange), log10.(Emax); color=:red, linewidth=2, ylabel=L"\lg(\max(E))", xlabel=L"\lg(N) = \lg(l\varepsilon^{-1})", size=(700,300), label=false)
+	p₅ = scatter(log10.(Nrange), log10.(Emax); color=:red, linewidth=2, ylabel=L"\lg(\max(E))", xlabel=L"\lg(N) = \lg(l\varepsilon^{-1})", size=(680,300), label=false)
 
-	p₆ = scatter(log10.(Nrange), log10.(Emean); color=:red, linewidth=2, ylabel=L"\lg(mean(E))", xlabel=L"\lg(N) = \lg(l\varepsilon^{-1})", size=(700,300), label=false)
+	p₆ = scatter(log10.(Nrange), log10.(Emean); color=:red, linewidth=2, ylabel=L"\lg(mean(E))", xlabel=L"\lg(N) = \lg(l\varepsilon^{-1})", size=(680,300), label=false)
 
 	md"""
 	$(p₅)
@@ -1295,7 +1306,9 @@ version = "1.4.1+0"
 # ╟─be37fd81-64c7-409c-81d6-b2dbe3ec8134
 # ╟─2e5ab70d-0224-481d-b5f4-d60d222cfc18
 # ╟─6aafcd40-48cd-4366-bff9-422e615aafaa
+# ╠═632203c9-2e3c-4892-8cc3-f33ce38c54b9
 # ╟─af13c46d-2300-4c5b-8213-9daacb290d41
+# ╟─50355497-3926-498d-b8ab-49ecf3ea8ac7
 # ╟─c8de8526-380f-4cac-8ba7-4a96d21aaa16
 # ╟─3799ff0f-32c9-4597-b8dd-2d4fe23bb7f3
 # ╟─ef011457-5d5d-4881-a280-b4656939d4dd

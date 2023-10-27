@@ -16,7 +16,8 @@ end
 
 # ╔═╡ 6f9274dc-489d-11ed-365a-4f112bfcb23a
 begin
-	using PlutoUI, Plots, ColorSchemes, LaTeXStrings
+	using PlutoUI, PlutoTeachingTools
+	using Plots, ColorSchemes, LaTeXStrings
 	import ForwardDiff
 
 	function ∂ⁿₓ(f::Function, x::Real, n::Integer)
@@ -31,45 +32,7 @@ begin
 	precompile(∂ⁿₓ, (Function, Float32, Int))
 	precompile(∂ⁿₓ, (Function, Float16, Int))
 
-	md"""
-	# Differenzenquotienten
-	"""
-end
-
-# ╔═╡ 9699930e-a5a3-434e-b808-175a7cf4dd04
-md"""
-## Parameter
-
-Zu untersuchende Funktion: ``f(x) =`` $(@bind fstring TextField(;default="sin(x)"))
-
-Intervall für Darstellung: ``x \in`` [$(@bind x RangeSlider(-8.0:0.1:8.0; default=0:6))]
-
-Grad der Ableitung: ``n =`` $(@bind n NumberField(1:1:2; default=1))
-"""
-
-# ╔═╡ 4e9d3907-3cfa-4969-bb86-730c32b3c1cb
-begin
-	f = eval(Meta.parse("x -> " * fstring))
-	p = hline([0.0]; label=nothing, color=:black, size=(700,400))
-	plot!(p, x, f.(x); color=:blue, linewidth=2, label="Funktion")
-	
-	fⁿ(x) = ∂ⁿₓ(f, x, n)
-	plot!(p, x, fⁿ.(x); label="Ableitung", color=:red, linewidth=2)
-end
-
-# ╔═╡ 3bcc14c9-81be-4fdc-837d-00cf0ac816de
-md"""
-## Finite Differenz wählen und anwenden
-
-Art des Stencils: $(@bind stencilname Select(["vorwärts", "zentral", "rückwärts"]))
-
-Kleinheitsparameter: ``\varepsilon =`` $(@bind εstring TextField(;default="1e-2"))
-
-Stützstellen des Stencils als Vielsfaches von ``\varepsilon`` ausgehend von der Stelle der gesuchten Ableitung:
-"""
-
-# ╔═╡ 753f5fbb-1b88-408f-8787-a37fefea31ce
-begin
+		# Defined difference quotients
 	struct DQ{N}
 		order::Int
 		name::String
@@ -84,32 +47,79 @@ begin
 		DQ{3}(2, "zentral", (-1, 0, 1), (1, -2, 1)),
 		DQ{3}(2, "rückwärts", (-2, -1, 0), (1, -2, 1))
 	]
+	function apply_dq(f::Function, x::Real, dq::DQ{N}, ε::Real, datatype) where N
+		y::datatype = 0
+		n  = dq.order
+		ξᵢ = dq.stencil
+		cᵢ = dq.coefficients
+		for i in 1:N
+			y += convert(datatype, cᵢ[i]) * convert(datatype, f(x+ε*ξᵢ[i]))
+		end
+		y /= convert(datatype, ε)^convert(datatype, n)
+	end
+
+	md"""
+	# Differenzenquotienten
+	"""
+end
+
+# ╔═╡ 54d5b84a-93c5-426e-aea1-bfa3ce5274a4
+ChooseDisplayMode()
+
+# ╔═╡ 9699930e-a5a3-434e-b808-175a7cf4dd04
+begin
+	possiblefunctions = [ begin x -> sin(x) end => "sin(x)",
+						  begin x -> x^3 end => "x³",
+		                  begin x -> abs(x) end => "|x|",
+						  begin x -> 1.5^x end => "1.5ˣ"]
+	md"""
+	## Parameter
+	
+	Zu untersuchende Funktion: ``f(x) =`` $(@bind f Select(possiblefunctions))
+	
+	Intervall für Darstellung: ``x \in`` [$(@bind x RangeSlider(-8.0:0.1:8.0; default=-1:5))]
+	
+	Grad der Ableitung: ``n =`` $(@bind n Select([1,2]; default=1))
+	"""
+end
+
+# ╔═╡ 4e9d3907-3cfa-4969-bb86-730c32b3c1cb
+begin
+	p₀ = hline([0.0]; label=nothing, color=:black, size=(680,400))
+	plot!(p₀, x, f.(x); color=:blue, linewidth=2, label="Funktion")
+	
+	fⁿ(x) = ∂ⁿₓ(f, x, n)
+	plot!(p₀, x, fⁿ.(x); label="$(n). Ableitung", color=:red, linewidth=2)
+end
+
+# ╔═╡ 3bcc14c9-81be-4fdc-837d-00cf0ac816de
+md"""
+## Finite Differenz wählen und anwenden
+
+Art des Stencils: $(@bind stencilname Select(["vorwärts", "zentral", "rückwärts"]))
+
+Kleinheitsparameter: ``\varepsilon =`` $(@bind ε Select([1e-10, 1e-9, 1e-8, 1e-7, 1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1]; default=1e-2))
+
+Stützstellen des Stencils als Vielsfaches von ``\varepsilon`` ausgehend von der Stelle der gesuchten Ableitung:
+"""
+
+# ╔═╡ 753f5fbb-1b88-408f-8787-a37fefea31ce
+begin
 	dq = dqs[collect(dq.order == n && dq.name == stencilname for dq in dqs)][1]
 	ξᵢ = dq.stencil
 	cᵢ = dq.coefficients
-	
 	ηᵢ = zeros(length(ξᵢ))
 	# Darstellung der gegebenen werden
-	pₛ = scatter([ξᵢ...], ηᵢ; label="Stützstellen", color=:blue, title="Stencil", ylims=(-1,1), size=(700,200), yaxis=nothing, xlabel=md"Abstand in ``[\varepsilon]`` von ``x_0``")
-	scatter!(pₛ, [0], [-0.1]; color=:red, label="Stelle der gesuchten Ableitung")
+	pₛ = scatter([ξᵢ...], ηᵢ; label="Stützstellen", color=:blue, title="Stencil", ylims=(-1,1), size=(680,200), yaxis=nothing, xlabel=md"Abstand in ``[\varepsilon]`` von ``x``")
+	scatter!(pₛ, [0], [-0.1]; color=:red, label="Stelle x der gesuchten Ableitung")
 end
 
 # ╔═╡ 734bbfd6-fca5-4186-b061-f922def74ec6
 begin
-	function evaluate(x, diff_quot::DQ{N}, data_type; ε=parse(Float64, εstring)) where N
-		y::data_type = 0
-		for i in 1:N
-			y += convert(data_type, cᵢ[i]) * convert(data_type, f(x+ε*ξᵢ[i]))
-		end
-		y /= convert(data_type, ε)^convert(data_type, n)
-	end
-	
-	datatypes = [Float16, Float32, Float64]
-	
-	p₁ = hline([0.0]; label=nothing, color=:black, size=(700,400))
+	p₁ = hline([0.0]; label=nothing, color=:black, size=(680,400))
 	plot!(p₁, x, fⁿ.(x); label="exakt", color=:green, linewidth=10)
-	for datatype in datatypes
-		specific_evaluation = (x) -> evaluate(x, dq, datatype)
+	for datatype in [Float16, Float32, Float64]
+		specific_evaluation = (x) -> apply_dq(f, x, dq, ε, datatype)
 		y = specific_evaluation.(x)
 		scatter!(p₁, x, y; label="$datatype", linewidth=2, palette=palette(:plasma, 3))
 	end
@@ -124,20 +134,22 @@ end
 md"""
 ## Konvergenzverhalten untersuchen
 
-Betrachtete Stelle: ``x_k =`` $(@bind xₖstring TextField(;default="0.2"))
+Betrachtete Stelle: ``x_k =`` $(@bind xₖ Select(collect(x); default=0.2))
 
-Betrachtete Kleinheitsparameter: ``\varepsilon = 10^{-a}`` mit ``a \in [-3,`` $(@bind εexp Slider(-3.1:0.1:20; default=2.0, show_value=true)) ``]``
+Betrachtete Kleinheitsparameter: ``\varepsilon = 10^{-a}`` mit ``a \in [-3,`` $(@bind εexp Slider(-2.0:0.1:20; default=2.0, show_value=true)) ``]``
 """
 
 # ╔═╡ db9c417a-048e-407e-a95a-9b9363164ae3
 begin
-	xₖ = parse(BigFloat, xₖstring)
-	exact = fⁿ(xₖ)
+	exact = fⁿ(convert(BigFloat, xₖ))
 	εₖ = 10 .^ (3:-0.1:-εexp)
+	
 	pₑ = hline([log10(abs(exact))]; label=nothing, color=:black, xlabel=L"\log_{10}(\varepsilon^{-1})", ylabel=L"\log_{10}(E)",   formatter = :plain, title="Absoluter Fehler")
+	
 	pₖᵣ = hline([0.0]; label=nothing, color=:black, xlabel=L"\log_{10}(\varepsilon^{-1})", ylabel=md"``q``",   formatter = :plain, title="Konvergenzrate", ylims=(-2,2))
-	for datatype in datatypes
-		Eₖ = collect( evaluate(xₖ, dq, datatype; ε=ε) for ε in εₖ )
+	
+	for datatype in [Float16, Float32, Float64]
+		Eₖ = collect( apply_dq(f, xₖ, dq, ε, datatype) for ε in εₖ )
 		Eₖ .= log10.(abs.(Eₖ .- exact) .+ eps(datatype))
 		logεₖ = log10.(εₖ.^-1)
 		plot!(pₑ, logεₖ, Eₖ; label="$datatype", linewidth=2, palette=palette(:plasma, 3))
@@ -147,7 +159,7 @@ begin
 		end
 	end
 	md"""
-	$(plot(pₑ, pₖᵣ; layout=(2,1), size=(700, 800)))
+	$(plot(pₑ, pₖᵣ; layout=(2,1), size=(680, 800)))
 	
 	Hinweis: Die dargestellten Werte für die Konvergenzrate wurden aus der Steigung des Fehlerplots ermittelt. Dazu wurde ein zentraler Differenzenquotient genutzt, welcher jeweils die benachbaten Werte der betrachteten Stelle einbezieht.
 	"""
@@ -169,6 +181,7 @@ ColorSchemes = "35d6a980-a343-548e-a6ea-1d62b119f2f4"
 ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
 LaTeXStrings = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
+PlutoTeachingTools = "661c6b06-c737-4d37-b85c-46df65de6f69"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 
 [compat]
@@ -176,6 +189,7 @@ ColorSchemes = "~3.20.0"
 ForwardDiff = "~0.10.34"
 LaTeXStrings = "~1.3.0"
 Plots = "~1.38.0"
+PlutoTeachingTools = "~0.2.13"
 PlutoUI = "~0.7.49"
 """
 
@@ -185,7 +199,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.9.0"
 manifest_format = "2.0"
-project_hash = "22fbd504b2bc789ea5d0bca9e921e6bea4942f0c"
+project_hash = "0baeb8b8eac5a0f2ec0b8dd53171250aee24dd5b"
 
 [[deps.AbstractPlutoDingetjes]]
 deps = ["Pkg"]
@@ -231,6 +245,12 @@ deps = ["ChainRulesCore", "LinearAlgebra", "Test"]
 git-tree-sha1 = "38f7a08f19d8810338d4f5085211c7dfa5d5bdd8"
 uuid = "9e997f8a-9a97-42d5-a9f1-ce6bfc15e2c0"
 version = "0.1.4"
+
+[[deps.CodeTracking]]
+deps = ["InteractiveUtils", "UUIDs"]
+git-tree-sha1 = "a1296f0fe01a4c3f9bf0dc2934efbf4416f5db31"
+uuid = "da1fd8a2-8d9e-5ec2-8556-3022fb5608a2"
+version = "1.3.4"
 
 [[deps.CodecZlib]]
 deps = ["TranscodingStreams", "Zlib_jll"]
@@ -316,6 +336,10 @@ deps = ["IrrationalConstants", "LogExpFunctions", "NaNMath", "Random", "SpecialF
 git-tree-sha1 = "c5b6685d53f933c11404a3ae9822afe30d522494"
 uuid = "b552c78f-8df3-52c6-915a-8e097449b14b"
 version = "1.12.2"
+
+[[deps.Distributed]]
+deps = ["Random", "Serialization", "Sockets"]
+uuid = "8ba89e20-285c-5b6f-9357-94700520ee1b"
 
 [[deps.DocStringExtensions]]
 deps = ["LibGit2"]
@@ -500,6 +524,12 @@ git-tree-sha1 = "b53380851c6e6664204efb2e62cd24fa5c47e4ba"
 uuid = "aacddb02-875f-59d6-b918-886e6ef4fbf8"
 version = "2.1.2+0"
 
+[[deps.JuliaInterpreter]]
+deps = ["CodeTracking", "InteractiveUtils", "Random", "UUIDs"]
+git-tree-sha1 = "81dc6aefcbe7421bd62cb6ca0e700779330acff8"
+uuid = "aa1ae85d-cabe-5617-a682-6adf51b2e16a"
+version = "0.9.25"
+
 [[deps.LAME_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "f6250b16881adf048549549fba48b1161acdac8c"
@@ -617,6 +647,12 @@ deps = ["Dates", "Logging"]
 git-tree-sha1 = "cedb76b37bc5a6c702ade66be44f831fa23c681e"
 uuid = "e6f89c97-d47a-5376-807f-9c37f3926c36"
 version = "1.0.0"
+
+[[deps.LoweredCodeUtils]]
+deps = ["JuliaInterpreter"]
+git-tree-sha1 = "60168780555f3e663c536500aa790b6368adc02a"
+uuid = "6f1432cf-f94c-5a45-995e-cdbf5db27b0b"
+version = "2.3.0"
 
 [[deps.MIMEs]]
 git-tree-sha1 = "65f28ad4b594aebe22157d6fac869786a255b7eb"
@@ -762,6 +798,24 @@ git-tree-sha1 = "513084afca53c9af3491c94224997768b9af37e8"
 uuid = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 version = "1.38.0"
 
+[[deps.PlutoHooks]]
+deps = ["InteractiveUtils", "Markdown", "UUIDs"]
+git-tree-sha1 = "072cdf20c9b0507fdd977d7d246d90030609674b"
+uuid = "0ff47ea0-7a50-410d-8455-4348d5de0774"
+version = "0.0.5"
+
+[[deps.PlutoLinks]]
+deps = ["FileWatching", "InteractiveUtils", "Markdown", "PlutoHooks", "Revise", "UUIDs"]
+git-tree-sha1 = "8f5fa7056e6dcfb23ac5211de38e6c03f6367794"
+uuid = "0ff47ea0-7a50-410d-8455-4348d5de0420"
+version = "0.1.6"
+
+[[deps.PlutoTeachingTools]]
+deps = ["Downloads", "HypertextLiteral", "LaTeXStrings", "Latexify", "Markdown", "PlutoLinks", "PlutoUI", "Random"]
+git-tree-sha1 = "542de5acb35585afcf202a6d3361b430bc1c3fbd"
+uuid = "661c6b06-c737-4d37-b85c-46df65de6f69"
+version = "0.2.13"
+
 [[deps.PlutoUI]]
 deps = ["AbstractPlutoDingetjes", "Base64", "ColorTypes", "Dates", "FixedPointNumbers", "Hyperscript", "HypertextLiteral", "IOCapture", "InteractiveUtils", "JSON", "Logging", "MIMEs", "Markdown", "Random", "Reexport", "URIs", "UUIDs"]
 git-tree-sha1 = "eadad7b14cf046de6eb41f13c9275e5aa2711ab6"
@@ -820,6 +874,12 @@ deps = ["UUIDs"]
 git-tree-sha1 = "838a3a4188e2ded87a4f9f184b4b0d78a1e91cb7"
 uuid = "ae029012-a4dd-5104-9daa-d747884805df"
 version = "1.3.0"
+
+[[deps.Revise]]
+deps = ["CodeTracking", "Distributed", "FileWatching", "JuliaInterpreter", "LibGit2", "LoweredCodeUtils", "OrderedCollections", "Pkg", "REPL", "Requires", "UUIDs", "Unicode"]
+git-tree-sha1 = "7364d5f608f3492a4352ab1d40b3916955dc6aec"
+uuid = "295af30f-e4ad-537b-8983-00126c2a3abe"
+version = "3.5.5"
 
 [[deps.SHA]]
 uuid = "ea8e919c-243c-51af-8825-aaa63cd721ce"
@@ -1188,6 +1248,7 @@ version = "1.4.1+0"
 """
 
 # ╔═╡ Cell order:
+# ╟─54d5b84a-93c5-426e-aea1-bfa3ce5274a4
 # ╟─6f9274dc-489d-11ed-365a-4f112bfcb23a
 # ╟─9699930e-a5a3-434e-b808-175a7cf4dd04
 # ╟─4e9d3907-3cfa-4969-bb86-730c32b3c1cb

@@ -16,7 +16,8 @@ end
 
 # ╔═╡ c514fd98-5b77-11ed-38c1-c5e7e92f7df4
 begin
-	using PlutoUI, Plots, ColorSchemes, NonlinearSolve
+	using PlutoUI, PlutoTeachingTools
+	using Plots, ColorSchemes, NonlinearSolve
 
 	H(x) = x < 0 ? 0 : 1
 	precompile(H, (Function, Float64))
@@ -27,27 +28,6 @@ begin
 	const arcsin = asin
 	const arctan = atan
 
-	md"""
-	# Anfangswert-Probleme
-	"""
-end
-
-# ╔═╡ 94ee3cd9-7970-45d6-bd0f-f9f2b2cc1fce
-begin
-	y(t) = exp(-t)
-	# The following methods ignore f, since they have been adapted spcifically to the simple problem
-	euler_for(f::Function, yₙ::Real, tₙ::Real, Δt::Real) = yₙ - Δt*yₙ
-	euler_back(f::Function, yₙ::Real, tₙ::Real, Δt::Real) = yₙ / (1 + Δt)
-	trapezoidal(f::Function, yₙ::Real, tₙ::Real, Δt::Real) = (yₙ - Δt/2*yₙ) / (1 + Δt/2)
-	function RK38(f::Function, yₙ::Real, tₙ::Real, Δt::Real)
-		k₁ = -yₙ
-		k₂ = -(yₙ + Δt/3*k₁)
-		k₃ = -(yₙ + Δt/3*(-k₁ + 3*k₂))
-		k₄ = -(yₙ + Δt*(k₁ - k₂ + k₃))
-		return yₙ + Δt/8*(k₁ + 3*k₂ + 3*k₃ + k₄)
-	end
-	
-	methodnames = ("Euler vorwärts", "Euler rückwärts", "Trapez-Regel", "3/8-Regel")
 
 	function perform_time_stepping(method::Function, f::Function, y₀::Real, tₑ::Real, Δt::Real)
 		t = 0:Δt:tₑ
@@ -90,11 +70,11 @@ begin
 
 	function plot_results(results, Δt; yᵣₑ=missing, tₑ=0)
 		if ismissing(yᵣₑ)
-			p = plot(1; title=md"Ergebnisse für ``\Delta t = ``$(Δt)", framestyle=:zerolines, label=nothing, linewidth=3, xlabel=md"``t``", ylabel="y", size=(700,500))
+			p = plot(1; title=md"Ergebnisse für ``\Delta t = ``$(round(Δt; sigdigits=5))", framestyle=:zerolines, label=nothing, linewidth=3, xlabel=md"``t``", ylabel="y", size=(680,400))
 		else
 			t = LinRange(0,tₑ,500)
 			y = yᵣₑ.(t)
-			p = plot(t, y; title=md"Ergebnisse für ``\Delta t = ``$(Δt)", framestyle=:zerolines, label="Exakt", linewidth=3, xlabel=md"``t``", ylabel=md"``y``", size=(700,500))
+			p = plot(t, y; title=md"Ergebnisse für ``\Delta t = ``$(round(Δt; sigdigits=5))", framestyle=:zerolines, label="Exakt", linewidth=3, xlabel=md"``t``", ylabel=md"``y``", size=(680,400))
 		end
 		for res in results
 			iΔt = findfirst(x -> x==Δt, res.Δt)
@@ -102,6 +82,31 @@ begin
 		end
 		return p
 	end
+	
+	md"""
+	# Anfangswert-Probleme
+	"""
+end
+
+# ╔═╡ 9c966cb9-7978-4b66-8927-f5d02353b897
+ChooseDisplayMode()
+
+# ╔═╡ 94ee3cd9-7970-45d6-bd0f-f9f2b2cc1fce
+begin
+	y(t) = exp(-t)
+	# The following methods ignore f, since they have been adapted specifically to the simple problem
+	euler_for(f::Function, yₙ::Real, tₙ::Real, Δt::Real) = yₙ - Δt*yₙ
+	euler_back(f::Function, yₙ::Real, tₙ::Real, Δt::Real) = yₙ / (1 + Δt)
+	trapezoidal(f::Function, yₙ::Real, tₙ::Real, Δt::Real) = (yₙ - Δt/2*yₙ) / (1 + Δt/2)
+	function RK38(f::Function, yₙ::Real, tₙ::Real, Δt::Real)
+		k₁ = -yₙ
+		k₂ = -(yₙ + Δt/3*k₁)
+		k₃ = -(yₙ + Δt/3*(-k₁ + 3*k₂))
+		k₄ = -(yₙ + Δt*(k₁ - k₂ + k₃))
+		return yₙ + Δt/8*(k₁ + 3*k₂ + 3*k₃ + k₄)
+	end
+	
+	methodnames = ("Euler vorwärts", "Euler rückwärts", "Trapez-Regel", "3/8-Regel")
 	
 	md"""
 	## Verschiedene Verfahren für ein einfaches Problem
@@ -146,18 +151,16 @@ begin
 	- ``k_4 = f(y_n + \Delta t (k_1 - k_2 + k_3), t_n + \Delta t) = -(y_n + \Delta t (k_1 - k_2 + k_3))``
 	
 	- ``y_{n+1} = y_n + \frac{1}{8} \Delta t [ k_1 + 3k_2 + 3k_3 + k_4 ]``
-	
-	Zu verwendende Zeit-schrittweiten:
-	``\Delta t = 10^a`` mit ``a \in ``[$(@bind Δtexp₁ RangeSlider(-3:0.1:0; default=-1:0.1:0))]
 	"""
 end
 
 # ╔═╡ c273ce63-8c32-44ec-b889-3d9c554dd290
 begin
-	Δts₁ = 10 .^(Δtexp₁)
-	results₁ = apply_methods(x->x, (euler_for, euler_back, trapezoidal, RK38), methodnames, Δts₁, 1, 10; yₑ=y(10))
+	Δts = 10 .^(-(0:0.1:3))
+	possibleΔtend = [1e-1, 1e-2, 1e-3, 1e-4]
+	results₁ = apply_methods(y -> -y, (euler_for, euler_back, trapezoidal, RK38), methodnames, Δts, 1, 10; yₑ=y(10))
 	md"""
-	Darzustellende Zeitschrittweite: ``\Delta t =`` $(@bind Δt₁ Slider(Δts₁; default=Δts₁[end], show_value=true))
+	Zeitschrittweite für Darstellung: ``\Delta t =`` $(@bind Δt₁ Slider(Δts; show_value=true))
 	"""
 end
 
@@ -168,22 +171,11 @@ begin
 	"""
 end
 
-# ╔═╡ 05fe276b-0a84-4d72-bd20-e23f30d3322d
-begin
-	pₑ₁ = plot(1; title=md"Fehler bei ``t=10``", label=nothing, xlabel=md"``-\log_{10}(\Delta t)``", ylabel=md"``\log_{10}(E)``", size=(700,500))
-
-	for res in results₁
-		scatter!(pₑ₁, -log10.(res.Δt), log10.(res.E); label=res.name, linewidth=2)
-	end
-	
-	md"""
-	### Betrachtung der Fehler
-
-	Als Fehlermaß wird ``E = |y^* (t=t_e) - y(t=t_e)|``
-
-	$(pₑ₁)
-	"""
-end
+# ╔═╡ c49b4ef4-0c12-4a5d-89e1-e82cee7603f6
+md"""
+Untersuchte Zeit-schrittweiten:
+``\Delta t = 1, ..., `` $(@bind Δtend₁ Select(possibleΔtend))
+"""
 
 # ╔═╡ 0b6b529f-efd5-4e93-9dbd-0bc798380f0a
 begin
@@ -207,6 +199,14 @@ begin
 		k₄ = f(yₙ+Δt*(k₁-k₂+k₃), tₙ+Δt)
 		return yₙ + Δt/8*(k₁ + 3*k₂ + 3*k₃ + k₄)
 	end
+
+	possiblef = [
+		begin (y, t)-> -y end => "-y"
+		begin (y, t)-> y end => "y"
+		begin (y, t)-> -y^2 end => "-y^2"
+		begin (y, t)-> -y+t end => "-y+t"
+	]
+
 	md"""
 	## Verschiedene Verfahren für ein allgemeines Problem
 
@@ -220,31 +220,19 @@ begin
 
 	definiert:
 	
-	##### ``f(y(t), t) =`` $(@bind fstring TextField(;default="-y"))
+	##### ``f(y(t), t) =`` $(@bind f Select(possiblef))
 
-	##### ``t_e =`` $(@bind tₑstring TextField(;default="10"))
+	##### ``t_e =`` $(@bind tₑ Select([1,5,10,50,100,500,1000]; default=10))
 
-	##### ``y_0 =`` $(@bind y₀string TextField(;default="1"))
-	"""
-end
-
-# ╔═╡ f1850f3e-f0de-4374-9afe-a5745dc670ef
-begin
-	y₀ = parse(Float64, y₀string)
-	tₑ = parse(Float64, tₑstring)
-	f  = eval(Meta.parse("(y,t) -> " * fstring))
-	md"""
-	Zu verwendende Zeit-schrittweiten:
-	``\Delta t = 10^a`` mit ``a \in`` 10^[$(@bind Δtexp₂ RangeSlider(-3:0.1:0; default=-1:0.1:0))]
+	##### ``y_0 =`` $(@bind y₀ Select([-10,-5,-1,0,1,5,10]; default=1))
 	"""
 end
 
 # ╔═╡ e1f05764-e88b-404c-9be0-7c3858a25ca0
 begin
-	Δts₂ = 10 .^(Δtexp₂)
-	results₂ = apply_methods(f, (euler_forward, euler_backward, trapezoidal_rule, runge_kutta_3_8), methodnames, Δts₂, y₀, tₑ)
+	results₂ = apply_methods(f, (euler_forward, euler_backward, trapezoidal_rule, runge_kutta_3_8), methodnames, Δts, y₀, tₑ)
 	md"""
-	Darzustellende Zeitschrittweite: ``\Delta t =`` $(@bind Δt₂ Slider(Δts₂; default=Δts₂[end], show_value=true))
+	Darzustellende Zeitschrittweite: ``\Delta t =`` $(@bind Δt₂ Slider(Δts; show_value=true))
 	"""
 end
 
@@ -255,11 +243,44 @@ begin
 	"""
 end
 
+# ╔═╡ c2728bd5-6c6a-4294-8ddf-af21d6236af4
+md"""
+Untersuchte Zeit-schrittweiten:
+``\Delta t = 1, ..., `` $(@bind Δtend₂ Select(possibleΔtend))
+"""
+
+# ╔═╡ 05fe276b-0a84-4d72-bd20-e23f30d3322d
+begin
+	pₑ₁ = plot(1; title=md"``\log_{10}(E)`` bei ``t=10``", label=nothing, xlabel=md"``-\log_{10}(\Delta t)``", size=(680,400))
+
+	for res in results₁
+			iend = findfirst(Δt -> Δt < Δtend₂, res.Δt)
+		if isnothing(iend)
+			scatter!(pₑ₁, -log10.(res.Δt), log10.(res.E); label=res.name, linewidth=2)
+		else
+			scatter!(pₑ₁, -log10.(res.Δt[1:iend]), log10.(res.E[1:iend]); label=res.name, linewidth=2)
+		end
+	end
+	
+	md"""
+	### Betrachtung der Fehler
+
+	Als Fehlermaß wird ``E = |y^* (t=t_e) - y(t=t_e)|`` verwendet
+
+	$(pₑ₁)
+	"""
+end
+
 # ╔═╡ 343f1905-8b4d-445c-8a46-dcfa0e11a389
 begin
-	pₜ = plot(1; title="Rechenzeiten", label=nothing, linewidth=3, xlabel="-log₁₀(Δt)", ylabel=md"``\log_{10}(`` Rechenzeit ``[s] )``", size=(700,500), legend=:topleft)
+	pₜ = plot(1; title=md"``\log_{10}(``Rechenzeit ``[s] )``", label=nothing, linewidth=3, xlabel="-log₁₀(Δt)", size=(680,400), legend=:topleft)
 	for res in results₂
-		plot!(pₜ, -log10.(res.Δt), log10.(res.tₛₒₗᵥₑ); label=res.name, linewidth=2)
+		iend = findfirst(Δt -> Δt < Δtend₂, res.Δt)
+		if isnothing(iend)
+			plot!(pₜ, -log10.(res.Δt), log10.(res.tₛₒₗᵥₑ); label=res.name, linewidth=2)
+		else
+			plot!(pₜ, -log10.(res.Δt[1:iend]), log10.(res.tₛₒₗᵥₑ[1:iend]); label=res.name, linewidth=2)
+		end
 	end
 	md"""
 	$(pₜ)
@@ -272,12 +293,14 @@ PLUTO_PROJECT_TOML_CONTENTS = """
 ColorSchemes = "35d6a980-a343-548e-a6ea-1d62b119f2f4"
 NonlinearSolve = "8913a72c-1f9b-4ce2-8d82-65094dcecaec"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
+PlutoTeachingTools = "661c6b06-c737-4d37-b85c-46df65de6f69"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 
 [compat]
 ColorSchemes = "~3.23.0"
 NonlinearSolve = "~1.10.0"
 Plots = "~1.39.0"
+PlutoTeachingTools = "~0.2.13"
 PlutoUI = "~0.7.52"
 """
 
@@ -287,7 +310,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.9.0"
 manifest_format = "2.0"
-project_hash = "90fd33e2fb78632467b12d3e5a219b2399e9e8dc"
+project_hash = "599835aa134e50483b1abc90fd81313362c91a70"
 
 [[deps.ADTypes]]
 git-tree-sha1 = "a4c8e0f8c09d4aa708289c1a5fc23e2d1970017a"
@@ -394,6 +417,12 @@ deps = ["Static", "StaticArrayInterface"]
 git-tree-sha1 = "70232f82ffaab9dc52585e0dd043b5e0c6b714f1"
 uuid = "fb6a15b2-703c-40df-9091-08a04967cfa9"
 version = "0.1.12"
+
+[[deps.CodeTracking]]
+deps = ["InteractiveUtils", "UUIDs"]
+git-tree-sha1 = "a1296f0fe01a4c3f9bf0dc2934efbf4416f5db31"
+uuid = "da1fd8a2-8d9e-5ec2-8556-3022fb5608a2"
+version = "1.3.4"
 
 [[deps.CodecZlib]]
 deps = ["TranscodingStreams", "Zlib_jll"]
@@ -571,6 +600,12 @@ version = "1.6.0"
 git-tree-sha1 = "bdb1942cd4c45e3c678fd11569d5cccd80976237"
 uuid = "4e289a0a-7415-4d19-859d-a7e5c4648b56"
 version = "1.0.4"
+
+[[deps.EpollShim_jll]]
+deps = ["Artifacts", "JLLWrappers", "Libdl"]
+git-tree-sha1 = "8e9441ee83492030ace98f9789a654a6d0b1f643"
+uuid = "2702e6a9-849d-5ed8-8c21-79e8b8f9ee43"
+version = "0.0.20230411+0"
 
 [[deps.ExceptionUnwrapping]]
 deps = ["Test"]
@@ -824,6 +859,12 @@ git-tree-sha1 = "6f2675ef130a300a112286de91973805fcc5ffbc"
 uuid = "aacddb02-875f-59d6-b918-886e6ef4fbf8"
 version = "2.1.91+0"
 
+[[deps.JuliaInterpreter]]
+deps = ["CodeTracking", "InteractiveUtils", "Random", "UUIDs"]
+git-tree-sha1 = "81dc6aefcbe7421bd62cb6ca0e700779330acff8"
+uuid = "aa1ae85d-cabe-5617-a682-6adf51b2e16a"
+version = "0.9.25"
+
 [[deps.KLU]]
 deps = ["LinearAlgebra", "SparseArrays", "SuiteSparse_jll"]
 git-tree-sha1 = "764164ed65c30738750965d55652db9c94c59bfe"
@@ -1025,6 +1066,12 @@ weakdeps = ["ChainRulesCore", "ForwardDiff", "SpecialFunctions"]
     ForwardDiffExt = ["ChainRulesCore", "ForwardDiff"]
     SpecialFunctionsExt = "SpecialFunctions"
 
+[[deps.LoweredCodeUtils]]
+deps = ["JuliaInterpreter"]
+git-tree-sha1 = "60168780555f3e663c536500aa790b6368adc02a"
+uuid = "6f1432cf-f94c-5a45-995e-cdbf5db27b0b"
+version = "2.3.0"
+
 [[deps.MIMEs]]
 git-tree-sha1 = "65f28ad4b594aebe22157d6fac869786a255b7eb"
 uuid = "6c6e2e6c-3030-632d-7369-2d6c69616d65"
@@ -1217,6 +1264,24 @@ version = "1.39.0"
     ImageInTerminal = "d8c32880-2388-543b-8c61-d9f865259254"
     Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"
 
+[[deps.PlutoHooks]]
+deps = ["InteractiveUtils", "Markdown", "UUIDs"]
+git-tree-sha1 = "072cdf20c9b0507fdd977d7d246d90030609674b"
+uuid = "0ff47ea0-7a50-410d-8455-4348d5de0774"
+version = "0.0.5"
+
+[[deps.PlutoLinks]]
+deps = ["FileWatching", "InteractiveUtils", "Markdown", "PlutoHooks", "Revise", "UUIDs"]
+git-tree-sha1 = "8f5fa7056e6dcfb23ac5211de38e6c03f6367794"
+uuid = "0ff47ea0-7a50-410d-8455-4348d5de0420"
+version = "0.1.6"
+
+[[deps.PlutoTeachingTools]]
+deps = ["Downloads", "HypertextLiteral", "LaTeXStrings", "Latexify", "Markdown", "PlutoLinks", "PlutoUI", "Random"]
+git-tree-sha1 = "542de5acb35585afcf202a6d3361b430bc1c3fbd"
+uuid = "661c6b06-c737-4d37-b85c-46df65de6f69"
+version = "0.2.13"
+
 [[deps.PlutoUI]]
 deps = ["AbstractPlutoDingetjes", "Base64", "ColorTypes", "Dates", "FixedPointNumbers", "Hyperscript", "HypertextLiteral", "IOCapture", "InteractiveUtils", "JSON", "Logging", "MIMEs", "Markdown", "Random", "Reexport", "URIs", "UUIDs"]
 git-tree-sha1 = "e47cd150dbe0443c3a3651bc5b9cbd5576ab75b7"
@@ -1327,6 +1392,12 @@ deps = ["UUIDs"]
 git-tree-sha1 = "838a3a4188e2ded87a4f9f184b4b0d78a1e91cb7"
 uuid = "ae029012-a4dd-5104-9daa-d747884805df"
 version = "1.3.0"
+
+[[deps.Revise]]
+deps = ["CodeTracking", "Distributed", "FileWatching", "JuliaInterpreter", "LibGit2", "LoweredCodeUtils", "OrderedCollections", "Pkg", "REPL", "Requires", "UUIDs", "Unicode"]
+git-tree-sha1 = "7364d5f608f3492a4352ab1d40b3916955dc6aec"
+uuid = "295af30f-e4ad-537b-8983-00126c2a3abe"
+version = "3.5.5"
 
 [[deps.RuntimeGeneratedFunctions]]
 deps = ["ExprTools", "SHA", "Serialization"]
@@ -1658,7 +1729,7 @@ uuid = "19fa3120-7c27-5ec5-8db8-b0b0aa330d6f"
 version = "0.2.0"
 
 [[deps.Wayland_jll]]
-deps = ["Artifacts", "Expat_jll", "JLLWrappers", "Libdl", "Libffi_jll", "Pkg", "XML2_jll"]
+deps = ["Artifacts", "EpollShim_jll", "Expat_jll", "JLLWrappers", "Libdl", "Libffi_jll", "Pkg", "XML2_jll"]
 git-tree-sha1 = "ed8d92d9774b077c53e1da50fd81a36af3744c1c"
 uuid = "a2964d1f-97da-50d4-b82a-358c7fce9d89"
 version = "1.21.0+0"
@@ -1901,15 +1972,17 @@ version = "1.4.1+0"
 """
 
 # ╔═╡ Cell order:
+# ╟─9c966cb9-7978-4b66-8927-f5d02353b897
 # ╟─c514fd98-5b77-11ed-38c1-c5e7e92f7df4
 # ╟─94ee3cd9-7970-45d6-bd0f-f9f2b2cc1fce
 # ╟─c273ce63-8c32-44ec-b889-3d9c554dd290
 # ╟─e6464bca-9b06-4c53-9d78-182fc63c111b
 # ╟─05fe276b-0a84-4d72-bd20-e23f30d3322d
+# ╟─c49b4ef4-0c12-4a5d-89e1-e82cee7603f6
 # ╟─0b6b529f-efd5-4e93-9dbd-0bc798380f0a
-# ╟─f1850f3e-f0de-4374-9afe-a5745dc670ef
 # ╟─e1f05764-e88b-404c-9be0-7c3858a25ca0
 # ╟─cc6fc19d-06c2-4fdf-ab2d-2b419419991e
+# ╟─c2728bd5-6c6a-4294-8ddf-af21d6236af4
 # ╟─343f1905-8b4d-445c-8a46-dcfa0e11a389
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

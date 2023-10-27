@@ -16,7 +16,8 @@ end
 
 # ╔═╡ 871780da-6016-11ed-04e9-517acd8ec226
 begin
-	using PlutoUI, Plots, ColorSchemes, SparseArrays, LinearAlgebra
+	using PlutoUI, PlutoTeachingTools
+	using Plots, ColorSchemes, SparseArrays, LinearAlgebra
 
 	H(x) = x < 0 ? 0 : 1
 	precompile(H, (Function, Float64))
@@ -26,142 +27,48 @@ begin
 	const arccos = acos
 	const arcsin = asin
 	const arctan = atan
-	
-	md"""
-	# Instationäre Wärmeleitung in 2D
-	"""
-end
 
-# ╔═╡ d3f119c9-9d2a-4faa-a0f6-8f8097e828fd
-md"""
-## Betrachtetes Problem
-
-Instationäre Wärmeleitung in 2D ohne Quellterme und Neumann-Randbedingungen.
-
-Gleichung:
-
-##### ``\frac{\partial}{\partial t} T(x,y) = \Delta T(x,y)`` für ``(x,y) \in \Omega, t \in [0, t_e]``
-
-Mit dem Laplace Operator in 2D: ``\Delta T = \frac{\partial ^2}{\partial x^2} T + \frac{\partial ^2}{\partial y^2}T``
-
-Gebiet:
-
-##### ``\Omega = \{(x,y):\; 0<x<1,\; 0<y<1\}``
-
-Dirichlet-Randbedingungen:
-
-##### ``T(x,y) = T^*(x,y)`` für ``(x,y) \in \partial\Omega``
-
-Rand:
-
-##### ``\partial\Omega = \{(x,y):\; x=0`` oder ``x=1`` oder ``y=0`` oder ``y=1\}``
-
-Verwendete Randbedingungen: 
-
-``T^*(x=0, y, t) =`` $(@bind Tleft TextField(;default="y"))
-
-``T^*(x=1, y, t) =`` $(@bind Tright TextField(;default="0"))
-
-``T^*(x, y=0, t) =`` $(@bind Tbottom TextField(;default="sin(2π*(x+t))"))
-
-``T^*(x, y=1, t) =`` $(@bind Ttop TextField(;default="1-x"))
-
-Verwendete Anfangsbedingung:
-
-``T(x, y, t=0) =`` $(@bind Tinitial TextField(;default="0.0"))
-für ``(x,y) \in \Omega``
-"""
-
-# ╔═╡ f22365e6-b2c1-448b-94dd-89b00159928b
-begin
-	methodnames = ["Euler vorwärts", "Euler rückwärts", "Trapez-Regel", "3/8-Regel"]
-	
-	md"""
-	## Diskretisierung
-
-	Notation: ``\diamond (x_i, y_j, t_n) = \diamond ^t_{i,j}``
-
-	### Räumliche Diskretisierung mit Finiten Differenzen
-
-	Für beide Richtungen wird ein zentraler Differenzenquotient für die zweite Ableitung verwendet:
-
-	##### ``\frac{\partial}{\partial t} T^n_{i,j} = \Delta T^n_{i,j} \approx \frac{ T^n_{i+1,j} + T^n_{i-1,j} - 4^n_{i,j} + T^n_{i,j+1} + T^n_{i,j-1} }{ \varepsilon ^2}``
-
-	Anzahl Stützstellen in jede Richtung: ``N =`` $(@bind N Slider(5:1:25; default=5, show_value=true))
-
-	### Zeitliche Diskretisierung mit Zeit-Integrations-Verfahren
-
-	Es stehen folgende Verfahren zur Auswahl:
-
-	- Euler vorwärts Verfahren: ``T^{n+1}_{i,j} \approx T^{n}_{i,j} + \Delta T \frac{\partial}{\partial t} T^{n}_{i,j}``
-	- Euler rückwärts Verfahren: ``T^{n+1}_{i,j} \approx T^{n}_{i,j} + \Delta T \frac{\partial}{\partial t} T^{n+1}_{i,j}``
-	- Tapezregel: ``T^{n+1}_{i,j} \approx T^{n}_{i,j} + \frac{\Delta t}{2} ( \frac{\partial}{\partial t} T^{n}_{i,j} + \frac{\partial}{\partial t}T^{n+1}_{i,j} )``
-	- 3/8-Regel
-
-	verwendet wird: $(@bind methodstring Select(methodnames, default = "Euler vorwärts"))
-
-	mit ``\Delta t =`` $(@bind Δt Slider(0.0005:0.0001:0.01; default=0.1, show_value=true))
-	"""
-end
-
-# ╔═╡ 8376cb81-a19f-4d47-861b-65ffa5d74311
-begin
-	ε = 1/N
-	xᵢ = LinRange(0,1,N)
-	yⱼ = LinRange(0,1,N)
-	index(i,j) = i + (j-1)*N
-
-	K = spzeros(N^2,N^2)
-	for i in 2:N-1, j in 2:N-1
-		K[index(i,j), index(i,j)] = -4/ε^2
-		K[index(i,j), index(i-1,j)] = 1/ε^2
-		K[index(i,j), index(i+1,j)] = 1/ε^2
-		K[index(i,j), index(i,j-1)] = 1/ε^2
-		K[index(i,j), index(i,j+1)] = 1/ε^2
+		# Setting up system
+	index(i,j,N) = i + (j-1)*N
+	function setup_matrix(N::Integer, ε::Real)
+		K = spzeros(N^2,N^2)
+		for i in 2:N-1, j in 2:N-1
+			K[index(i,j,N), index(i  ,j,N)] = -4/ε^2
+			K[index(i,j,N), index(i-1,j,N)] = 1/ε^2
+			K[index(i,j,N), index(i+1,j,N)] = 1/ε^2
+			K[index(i,j,N), index(i,j-1,N)] = 1/ε^2
+			K[index(i,j,N), index(i,j+1,N)] = 1/ε^2
+		end
+		for i in (1,N), j in 1:N
+			K[index(i,j,N), index(i,j,N)] = 1
+		end
+		for i in 1:N, j in (1,N)
+			K[index(i,j,N), index(i,j,N)] = 1
+		end
+		return K
 	end
-	for i in (1,N), j in 1:N
-		K[index(i,j), index(i,j)] = 1
-	end
-	for i in 1:N, j in (1,N)
-		K[index(i,j), index(i,j)] = 1
-	end
-	
-	Tᵢₙᵢ = eval(Meta.parse("(x, y) -> " * Tinitial))
-	Tbc = eval(Meta.parse("""(x, y, t) -> begin 
-								if x==0
-									return $Tleft
-								elseif x==1
-									return $Tright
-								elseif y==0
-									return $Tbottom
-								elseif y==1
-									return $Ttop
-								end
-							end"""))
-
-	function apply_BC!(T, t)
+	function apply_BC!(T, t, Tbc, xᵢ, yⱼ)
+		N = length(xᵢ)
 		for i in 1:N
 			for j in 1:N
 				if xᵢ[i] == 0 || xᵢ[i] == 1 || yⱼ[j] == 0 || yⱼ[j] == 1
-					T[index(i,j)] = Tbc(xᵢ[i], yⱼ[j], t)
+					T[index(i,j,N)] = Tbc(xᵢ[i], yⱼ[j], t)
 				end
 			end
 		end
 		return T
 	end
 
+		# Time-stepping
 	function euler_forward(Tⁿ::Vector{<:Real}, tⁿ::Real, Δt::Real, K::AbstractMatrix)
 		return Tⁿ + Δt .* K * Tⁿ
 	end
-
 	function euler_backward(Tⁿ::Vector{<:Real}, tⁿ::Real, Δt::Real, K::AbstractMatrix)
 		return (I - Δt .* K) \ Tⁿ
 	end
-	
 	function trapezoidal(Tⁿ::Vector{<:Real}, tⁿ::Real, Δt::Real, K::AbstractMatrix)
 		return (I - Δt/2 .* K) \ (Tⁿ + Δt/2 .* K * Tⁿ)
 	end
-
 	function RK38(Tⁿ::Vector{<:Real}, tⁿ::Real, Δt::Real, K::AbstractMatrix)
 		k₁ = K * Tⁿ
 		k₂ = K * (Tⁿ + Δt/3 .* k₁)
@@ -169,16 +76,17 @@ begin
 		k₄ = K * (Tⁿ + Δt .* (k₁ - k₂ + k₃))
 		return Tⁿ + Δt/8 .* (k₁ + 3 .* k₂ + 3 .* k₃ + k₄)
 	end
-
+	methodnames = ["Euler vorwärts", "Euler rückwärts", "Trapez-Regel", "3/8-Regel"]
 	methods = Dict("Euler vorwärts" => euler_forward, "Euler rückwärts" => euler_backward, "Trapez-Regel" => trapezoidal, "3/8-Regel" => RK38)
-	method = methods[methodstring]
-	
+
+		# Plotting
 	plotrange = LinRange(0,1,100)
 	rescale_for_plot(values) = values ./ maximum(values) .* 0.09
-	function plot_state(T, t; shownodes=true)
-		p = hline([0,1]; color=:black, linewidth=3, label=nothing, xlims=(-0.1,1.1), ylims=(-0.1,1.1), size=(700,600), title="t = $(round(t; digits=3))")
+	function plot_state(T, t, xᵢ, yⱼ, Tbc; shownodes=true)
+		N = length(xᵢ)
+		p = hline([0,1]; color=:black, linewidth=3, label=nothing, xlims=(-0.1,1.1), ylims=(-0.1,1.1), size=(680,600), title="t = $(round(t; digits=3))")
 			
-			vline!(p, [0,1]; color=:black, linewidth=3, label=nothing)
+		vline!(p, [0,1]; color=:black, linewidth=3, label=nothing)
 		
 		contourf!(p, xᵢ, yⱼ, transpose(reshape(T, (N,N))); title=md"``T(t = ``$t``)``")
 			
@@ -195,43 +103,161 @@ begin
 		
 		return p
 	end
+	
+	md"""
+	# Instationäre Wärmeleitung in 2D
+	"""
+end
+
+# ╔═╡ 914dd55b-ad85-48fe-972f-6701f60672f2
+ChooseDisplayMode()
+
+# ╔═╡ d3f119c9-9d2a-4faa-a0f6-8f8097e828fd
+begin
+	possiblefunctions = [
+		begin (x, t) -> 0.0 end => "0",
+		begin (x, t) -> sin(2π*x) end => "sin(2πx)",
+		begin (x, t) -> 1-x end => "1-x",
+		begin (x, t) -> x end => "x",
+		begin (x, t) -> sin(2π*(x+t)) end => "sin(2π(x+t))",
+		begin (x, t) -> (1-x)t end => "(1-x)t",
+		begin (x, t) -> xt end => "xt"
+	]
+	possibleinits = [
+		begin (x, y) -> 0.0 end => "0",
+		begin (x, y) -> x*y end => "xy",
+		begin (x, y) -> sin(2π*x) end => "sin(2π*x)",
+	]
+
+	
+	md"""
+	## Betrachtetes Problem
+	
+	Instationäre Wärmeleitung in 2D ohne Quellterme und Neumann-Randbedingungen.
+	
+	### Gleichung:
+	
+	``\frac{\partial}{\partial t} T(x,y) = \Delta T(x,y)`` für ``(x,y) \in \Omega, t \in [0, t_e]``
+	
+	Mit dem Laplace Operator in 2D: ``\Delta T = \frac{\partial ^2}{\partial x^2} T + \frac{\partial ^2}{\partial y^2}T``
+	
+	und dem Gebiet ``\Omega = \{(x,y):\; 0<x<1,\; 0<y<1\}``
+	
+	### Dirichlet-Randbedingungen:
+	
+	``T(x,y) = T^*(x,y)`` für ``(x,y) \in \partial\Omega``
+	
+	auf dem Rand ``\partial\Omega = \{(x,y):\; x=0`` oder ``x=1`` oder ``y=0`` oder ``y=1\}``
+	
+	| link und rechts | unten und oben |
+	|:--------------- |:-------------- |
+	| ``T^*(x=0, y, t) =`` $( @bind Tleft Select(possiblefunctions) ) | ``T^*(x, y=0, t) =`` $( @bind Tbottom Select(possiblefunctions) ) |
+	| ``T^*(x=1, y, t) =`` $( @bind Tright Select(possiblefunctions) ) | ``T^*(x, y=1, t) =`` $( @bind Ttop Select(possiblefunctions) ) |
+	
+	### Anfangsbedingung:
+	
+	``T(x, y, t=0) =`` $( @bind Tᵢₙᵢ Select(possibleinits) )
+	für ``(x,y) \in \Omega``
+	"""
+end
+
+# ╔═╡ f22365e6-b2c1-448b-94dd-89b00159928b
+begin
+	md"""
+	## Diskretisierung
+
+	Notation: ``\diamond (x_i, y_j, t_n) = \diamond ^t_{i,j}``
+
+	### Räumliche Diskretisierung mit Finiten Differenzen
+
+	Für beide Richtungen wird ein zentraler Differenzenquotient für die zweite Ableitung verwendet:
+
+	##### ``\frac{\partial}{\partial t} T^n_{i,j} = \Delta T^n_{i,j} \approx \frac{ T^n_{i+1,j} + T^n_{i-1,j} - 4^n_{i,j} + T^n_{i,j+1} + T^n_{i,j-1} }{ \varepsilon ^2}``
+
+	mit ``N =`` $( @bind N Select([5,10,15,20,25]; default=5) ) Stützstellen in jede Richtung.
+	"""
+end
+
+# ╔═╡ 8376cb81-a19f-4d47-861b-65ffa5d74311
+begin
+	ε = 1/N
+	xᵢ = LinRange(0,1,N)
+	yⱼ = LinRange(0,1,N)
+	
+	function Tbc(x, y, t)
+		if x==0
+			return Tleft(y, t)
+		elseif x==1
+			return Tright(y, t)
+		elseif y==0
+			return Tbottom(x, t)
+		elseif y==1
+			return Ttop(x, t)
+		end
+	end
 
 	T₀ = reshape(Tᵢₙᵢ.(reshape(xᵢ, (:,1)),  reshape(yⱼ, (1,:))), (:,))
-	apply_BC!(T₀, 0)
+	apply_BC!(T₀, 0, Tbc, xᵢ, yⱼ)
 	
-	p₀ = hline([0,1]; color=:black, linewidth=3, label=nothing, xlims=(-0.1,1.1), ylims=(-0.1,1.1), size=(700,600))
-	vline!(p₀, [0,1]; color=:black, linewidth=3, label=nothing)
-
-
 	md"""
 	### Verwendetes Gitter und Anfangszustand
 
-	$(plot_state(T₀, 0))
+	$(plot_state(T₀, 0, xᵢ, yⱼ, Tbc))
 
 	Hinweis: Die grauen Linien entland des Randes stellen die gewählten Randbedingungen dar. Dabei sind positive Werte nach außen weg dargestellt. Außerdem wurden die Werte so skaliert, dass sie gut in die Abbildung passen und sind daher nicht mehr maßstabsgetreu.
 	"""
 end
 
+# ╔═╡ ac214787-8402-4a58-8472-c3c105e512ff
+begin
+	md"""
+	### Zeitliche Diskretisierung
+
+	Es stehen folgende Verfahren zur Auswahl:
+
+	- Euler vorwärts Verfahren: ``T^{n+1}_{i,j} \approx T^{n}_{i,j} + \Delta T \frac{\partial}{\partial t} T^{n}_{i,j}``
+	- Euler rückwärts Verfahren: ``T^{n+1}_{i,j} \approx T^{n}_{i,j} + \Delta T \frac{\partial}{\partial t} T^{n+1}_{i,j}``
+	- Tapezregel: ``T^{n+1}_{i,j} \approx T^{n}_{i,j} + \frac{\Delta t}{2} ( \frac{\partial}{\partial t} T^{n}_{i,j} + \frac{\partial}{\partial t}T^{n+1}_{i,j} )``
+	- 3/8-Regel
+
+	verwendet wird: 
+	$( @bind methodstring Select(methodnames) )
+	mit ``\Delta t =`` 
+	$( @bind Δt Select([0.0005,0.001,0.005,0.01,0.05,0.1]; default=0.1) ).
+
+	Knoten darstellen: $( @bind shownodes CheckBox(; default=true) )
+	"""
+end
+
 # ╔═╡ 5b8ef10e-a76b-405d-abd4-dfb94c85cb48
 begin
+	tsetup = @elapsed K = setup_matrix(N, ε)
+	method = methods[methodstring]
+
 	T = deepcopy(T₀)
-	anim = Animation()
+	tplot = @elapsed anim = Animation()
 	t = collect(0:Δt:1)
 	tcomp = 0.0
 	
 	for n in 1:length(t)-1
     	tcomp += @elapsed begin 
 			T = method(T, t[n], t[n+1]-t[n], K)
-			apply_BC!(T, t[n+1])
+			apply_BC!(T, t[n+1], Tbc, xᵢ, yⱼ)
 		end
-		mod(100*t[n], 1) ≈ 0 ? frame(anim, plot_state(T, t[n])) : nothing
+		mod(100*t[n], 1) ≈ 0 ? begin tplot += @elapsed frame(anim, plot_state(T, t[n], xᵢ, yⱼ, Tbc; shownodes=shownodes)) end : nothing
 	end
 	
 	g = gif(anim, fps=3; show_msg=false)
 	md"""
-	Berechnung hat $(tcomp) s gedauert.
+	### Ergebnis
 	
 	$(g)
+
+	Rechenzeiten:
+
+	| System Matrix aufstellen | Zeitschritte berechnen | Animation erstellen |
+	|:------------------------:|:----------------------:|:-------------------:|
+	| $( tsetup ) s            | $( tcomp ) s           | $( tplot ) s        |
 	"""
 end
 
@@ -241,12 +267,14 @@ PLUTO_PROJECT_TOML_CONTENTS = """
 ColorSchemes = "35d6a980-a343-548e-a6ea-1d62b119f2f4"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
+PlutoTeachingTools = "661c6b06-c737-4d37-b85c-46df65de6f69"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 
 [compat]
 ColorSchemes = "~3.20.0"
 Plots = "~1.38.0"
+PlutoTeachingTools = "~0.2.13"
 PlutoUI = "~0.7.49"
 """
 
@@ -256,7 +284,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.9.0"
 manifest_format = "2.0"
-project_hash = "1ac0a73466584c62569cc0ac14414f4b26f8fa63"
+project_hash = "c0bd3edf1e58a4cc1d3a2a747ec053d02012b565"
 
 [[deps.AbstractPlutoDingetjes]]
 deps = ["Pkg"]
@@ -302,6 +330,12 @@ deps = ["ChainRulesCore", "LinearAlgebra", "Test"]
 git-tree-sha1 = "38f7a08f19d8810338d4f5085211c7dfa5d5bdd8"
 uuid = "9e997f8a-9a97-42d5-a9f1-ce6bfc15e2c0"
 version = "0.1.4"
+
+[[deps.CodeTracking]]
+deps = ["InteractiveUtils", "UUIDs"]
+git-tree-sha1 = "a1296f0fe01a4c3f9bf0dc2934efbf4416f5db31"
+uuid = "da1fd8a2-8d9e-5ec2-8556-3022fb5608a2"
+version = "1.3.4"
 
 [[deps.CodecZlib]]
 deps = ["TranscodingStreams", "Zlib_jll"]
@@ -369,6 +403,10 @@ deps = ["Mmap"]
 git-tree-sha1 = "9e2f36d3c96a820c678f2f1f1782582fcf685bae"
 uuid = "8bb1440f-4735-579b-a4ab-409b98df4dab"
 version = "1.9.1"
+
+[[deps.Distributed]]
+deps = ["Random", "Serialization", "Sockets"]
+uuid = "8ba89e20-285c-5b6f-9357-94700520ee1b"
 
 [[deps.DocStringExtensions]]
 deps = ["LibGit2"]
@@ -547,6 +585,12 @@ git-tree-sha1 = "b53380851c6e6664204efb2e62cd24fa5c47e4ba"
 uuid = "aacddb02-875f-59d6-b918-886e6ef4fbf8"
 version = "2.1.2+0"
 
+[[deps.JuliaInterpreter]]
+deps = ["CodeTracking", "InteractiveUtils", "Random", "UUIDs"]
+git-tree-sha1 = "81dc6aefcbe7421bd62cb6ca0e700779330acff8"
+uuid = "aa1ae85d-cabe-5617-a682-6adf51b2e16a"
+version = "0.9.25"
+
 [[deps.LAME_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "f6250b16881adf048549549fba48b1161acdac8c"
@@ -664,6 +708,12 @@ deps = ["Dates", "Logging"]
 git-tree-sha1 = "cedb76b37bc5a6c702ade66be44f831fa23c681e"
 uuid = "e6f89c97-d47a-5376-807f-9c37f3926c36"
 version = "1.0.0"
+
+[[deps.LoweredCodeUtils]]
+deps = ["JuliaInterpreter"]
+git-tree-sha1 = "60168780555f3e663c536500aa790b6368adc02a"
+uuid = "6f1432cf-f94c-5a45-995e-cdbf5db27b0b"
+version = "2.3.0"
 
 [[deps.MIMEs]]
 git-tree-sha1 = "65f28ad4b594aebe22157d6fac869786a255b7eb"
@@ -809,6 +859,24 @@ git-tree-sha1 = "513084afca53c9af3491c94224997768b9af37e8"
 uuid = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 version = "1.38.0"
 
+[[deps.PlutoHooks]]
+deps = ["InteractiveUtils", "Markdown", "UUIDs"]
+git-tree-sha1 = "072cdf20c9b0507fdd977d7d246d90030609674b"
+uuid = "0ff47ea0-7a50-410d-8455-4348d5de0774"
+version = "0.0.5"
+
+[[deps.PlutoLinks]]
+deps = ["FileWatching", "InteractiveUtils", "Markdown", "PlutoHooks", "Revise", "UUIDs"]
+git-tree-sha1 = "8f5fa7056e6dcfb23ac5211de38e6c03f6367794"
+uuid = "0ff47ea0-7a50-410d-8455-4348d5de0420"
+version = "0.1.6"
+
+[[deps.PlutoTeachingTools]]
+deps = ["Downloads", "HypertextLiteral", "LaTeXStrings", "Latexify", "Markdown", "PlutoLinks", "PlutoUI", "Random"]
+git-tree-sha1 = "542de5acb35585afcf202a6d3361b430bc1c3fbd"
+uuid = "661c6b06-c737-4d37-b85c-46df65de6f69"
+version = "0.2.13"
+
 [[deps.PlutoUI]]
 deps = ["AbstractPlutoDingetjes", "Base64", "ColorTypes", "Dates", "FixedPointNumbers", "Hyperscript", "HypertextLiteral", "IOCapture", "InteractiveUtils", "JSON", "Logging", "MIMEs", "Markdown", "Random", "Reexport", "URIs", "UUIDs"]
 git-tree-sha1 = "eadad7b14cf046de6eb41f13c9275e5aa2711ab6"
@@ -867,6 +935,12 @@ deps = ["UUIDs"]
 git-tree-sha1 = "838a3a4188e2ded87a4f9f184b4b0d78a1e91cb7"
 uuid = "ae029012-a4dd-5104-9daa-d747884805df"
 version = "1.3.0"
+
+[[deps.Revise]]
+deps = ["CodeTracking", "Distributed", "FileWatching", "JuliaInterpreter", "LibGit2", "LoweredCodeUtils", "OrderedCollections", "Pkg", "REPL", "Requires", "UUIDs", "Unicode"]
+git-tree-sha1 = "7364d5f608f3492a4352ab1d40b3916955dc6aec"
+uuid = "295af30f-e4ad-537b-8983-00126c2a3abe"
+version = "3.5.5"
 
 [[deps.SHA]]
 uuid = "ea8e919c-243c-51af-8825-aaa63cd721ce"
@@ -1224,10 +1298,12 @@ version = "1.4.1+0"
 """
 
 # ╔═╡ Cell order:
+# ╟─914dd55b-ad85-48fe-972f-6701f60672f2
 # ╟─871780da-6016-11ed-04e9-517acd8ec226
 # ╟─d3f119c9-9d2a-4faa-a0f6-8f8097e828fd
 # ╟─f22365e6-b2c1-448b-94dd-89b00159928b
 # ╟─8376cb81-a19f-4d47-861b-65ffa5d74311
+# ╟─ac214787-8402-4a58-8472-c3c105e512ff
 # ╟─5b8ef10e-a76b-405d-abd4-dfb94c85cb48
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

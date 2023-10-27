@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.19.26
+# v0.19.27
 
 using Markdown
 using InteractiveUtils
@@ -16,7 +16,8 @@ end
 
 # ╔═╡ 5b0e45ec-550c-11ed-31c7-77431a2257f7
 begin
-	using PlutoUI, Plots, ColorSchemes, Polynomials
+	using PlutoUI, PlutoTeachingTools
+	using Plots, ColorSchemes, Polynomials
 
 	H(x) = x < 0 ? 0 : 1
 	precompile(H, (Function, Float64))
@@ -26,36 +27,72 @@ begin
 	const arccos = acos
 	const arcsin = asin
 	const arctan = atan
+
+	trapez(f, xᵤ, xₒ) = (f(xᵤ) + f(xₒ))/2 * (xₒ-xᵤ)
+	simpson(f, xᵤ, xₒ) = (f(xᵤ) + 4*f((xᵤ+xₒ)/2) + f(xₒ))/6 * (xₒ-xᵤ)
+	gauss(f, xᵤ, xₒ) = (f.(-sqrt(1/3)*(xₒ-xᵤ)/2+(xₒ+xᵤ)/2) + f(sqrt(1/3)*(xₒ-xᵤ)/2+(xₒ+xᵤ)/2))/2 * (xₒ-xᵤ)
+
+	function summed_quadrature(formula::Function, f::Function, xᵤ::Real, xₒ::Real, Nᵢ::Integer)
+		xᵢ = LinRange(xᵤ, xₒ, Nᵢ+1)
+		return sum(formula.(f, xᵢ[1:end-1], xᵢ[2:end]))
+	end
+
+	function q_emp(formula::Function, f::Function, xᵤ::Real, xₒ::Real, Nᵢ::Integer)
+		fs(xᵤ, xₒ, Nᵢ) = summed_quadrature(formula, f, xᵤ, xₒ, Nᵢ)
+		return log10( abs( (fs(xᵤ,xₒ,Nᵢ)-fs(xᵤ,xₒ,2*Nᵢ))/(fs(xᵤ,xₒ,2*Nᵢ)-fs(xᵤ,xₒ,4*Nᵢ)) ) ) / log10(2)
+	end
+	
+	function compute_integrals(formula::Function, f::Function, xᵤ::Real, xₒ::Real, Nₖ::Vector)
+		I = zeros(length(Nₖ))
+		t = zeros(length(Nₖ))
+		for i in eachindex(Nₖ)
+			t[i] = @elapsed I[i] = summed_quadrature(formula, f, xᵤ, xₒ, Nₖ[i])
+		end
+		return (I=I,t=t)
+	end
+	precompile(compute_integrals, (Function, Function, Float64, Float64, Vector{Int}))
+	
+	function compute_conv_rates(formula::Function, f::Function, xᵤ::Real, xₒ::Real, Nₖ::Vector)
+		return collect( q_emp(formula, f, xᵤ, xₒ, Nᵢ) for Nᵢ in Nₖ)
+	end
+	precompile(compute_conv_rates, (Function, Function, Float64, Float64, Vector{Int}))
 	
 	md"""
 	# Quadratur
 	"""
 end
 
+# ╔═╡ dbe56325-4783-4472-a51c-12c5892a76d6
+ChooseDisplayMode()
+
 # ╔═╡ 91ccf2e2-ca10-4d8f-b3cd-919e6072efd7
-md"""
-## Einfache Quadratur-Regeln
-
-Zu untersuchende Funktion: ``f(x) =`` $(@bind f_string TextField(;default="sin(x)"))
-
-Stamm Funktion: ``F(x) =`` $(@bind F_string TextField(;default="-cos(x)"))
-
-Integrations-Intervall: ``[x_u, x_o] =`` [$(@bind x RangeSlider(-3.5:0.1:3.5; default=0.5:0.1:2.0))]
-"""
+begin
+	possiblefunctions = Dict([ 
+		"sin(x)" => (x -> sin(x), x -> -cos(x)),
+		"x³" => (x -> x^3, x -> 1/4*x^4),
+		"eˣ" => (x -> exp(x), x -> exp(x))
+		])
+	fkeys = ["sin(x)", "x³", "eˣ"]
+	md"""
+	## Einfache Quadratur-Regeln
+	
+	Zu untersuchende Funktion: ``f(x) =`` $(@bind fkey Select(fkeys)))
+	
+	Integrations-Intervall: ``[x_u, x_o] =`` [$(@bind x RangeSlider(-3.5:0.1:3.5; default=0.5:0.1:2.0))]
+	"""
+end
 
 # ╔═╡ e95f1503-5398-44fa-8a16-603528222e18
 begin
-	f = eval(Meta.parse("x -> " * f_string))
-	F = eval(Meta.parse("x -> " * F_string))
+	(f, F) = possiblefunctions[fkey]
 	xᵤ = x[1]
 	xₒ = x[end]
 	Iref = F(xₒ) - F(xᵤ)
-	trapez(xᵤ, xₒ) = (f(xᵤ) + f(xₒ))/2 * (xₒ-xᵤ)
-	simpson(xᵤ, xₒ) = (f(xᵤ) + 4*f((xᵤ+xₒ)/2) + f(xₒ))/6 * (xₒ-xᵤ)
-	gauss(xᵤ, xₒ) = (f(-sqrt(1/3)*(xₒ-xᵤ)/2+(xₒ+xᵤ)/2) + f(sqrt(1/3)*(xₒ-xᵤ)/2+(xₒ+xᵤ)/2))/2 * (xₒ-xᵤ)
+	
+	xg = [ -sqrt(1/3)*(xₒ-xᵤ)/2+(xₒ+xᵤ)/2 , sqrt(1/3)*(xₒ-xᵤ)/2+(xₒ+xᵤ)/2 ]
+
 	fₛ = fit([xᵤ, (xᵤ+xₒ)/2, xₒ], f.([xᵤ, (xᵤ+xₒ)/2, xₒ]), 2)
-	xg = [-sqrt(1/3)*(xₒ-xᵤ)/2+(xₒ+xᵤ)/2, sqrt(1/3)*(xₒ-xᵤ)/2+(xₒ+xᵤ)/2]
-	fg = fit([xᵤ, xₒ], f.(xg), 1)
+	fg = fit(xg, f.(xg), 1)
 	
 	pₜ = hline([0.0]; label=nothing, color=:black, legend=nothing, title="Trapez-Regel", xlabel=md"``x``", ylabel=md"``f``")
 	plot!(pₜ, x, f.(x); color=:blue, linewidth=2)
@@ -76,7 +113,7 @@ begin
 	md"""
 	### Darstellung der verwendeten Verfahren
 	
-	$(plot(pₜ, pₛ, pg; layout=(3,1), size=(700, 800)))
+	$(plot(pₜ, pₛ, pg; layout=(3,1), size=(680, 800)))
 	"""
 end
 
@@ -86,11 +123,11 @@ begin
 	### Ergebnisse:
 	Analytisch: $(Iref)
 
-	Trapez-Regel: $(trapez(xᵤ, xₒ))
+	Trapez-Regel: $(trapez(f, xᵤ, xₒ))
 
-	Simpson-Regel: $(simpson(xᵤ, xₒ))
+	Simpson-Regel: $(simpson(f, xᵤ, xₒ))
 
-	Gauß-Quadratur: $(gauss(xᵤ, xₒ))
+	Gauß-Quadratur: $(gauss(f, xᵤ, xₒ))
 	"""
 end
 
@@ -98,23 +135,19 @@ end
 md"""
 ## Summierte Quadratur
 
-Anzahl Teilintervalle: ``N =`` $(@bind N NumberField(1:1:10; default=1))
+Anzahl Teilintervalle: ``N =`` $(@bind N Select(1:1:10; default=1))
 """
 
 # ╔═╡ 0386c671-9c69-46d0-be2b-907778a4cb6c
 begin
-	function summed_quadrature(formula::Function, xᵤ::Real, xₒ::Real, Nᵢ::Integer)
-		xᵢ = LinRange(xᵤ, xₒ, Nᵢ+1)
-		return sum(formula.(xᵢ[1:end-1], xᵢ[2:end]))
-	end
 	xᵢ = LinRange(xᵤ, xₒ, N+1)
 	md"""
 	### Ergebnisse:
-	Trapez-Regel: $(summed_quadrature(trapez, xᵤ, xₒ, N))
+	Trapez-Regel: $(summed_quadrature(trapez, f, xᵤ, xₒ, N))
 
-	Simpson-Regel: $(summed_quadrature(simpson, xᵤ, xₒ, N))
+	Simpson-Regel: $(summed_quadrature(simpson, f, xᵤ, xₒ, N))
 
-	Gauß-Quadratur: $(summed_quadrature(gauss, xᵤ, xₒ, N))
+	Gauß-Quadratur: $(summed_quadrature(gauss, f, xᵤ, xₒ, N))
 	"""
 end
 
@@ -122,36 +155,18 @@ end
 begin
 	N_exp_range = 0:0.1:5
 	Nₖ = round.([Int], 10 .^ N_exp_range)
+	
+	integrals = ( trapez=compute_integrals(trapez, f, xᵤ, xₒ, Nₖ),
+	              simpson=compute_integrals(simpson, f, xᵤ, xₒ, Nₖ),
+	              gauss=compute_integrals(gauss, f, xᵤ, xₒ, Nₖ) )
 
+	convrates = ( trapez=compute_conv_rates(trapez, f, xᵤ, xₒ, Nₖ),
+	              simpson=compute_conv_rates(simpson, f, xᵤ, xₒ, Nₖ),
+	              gauss=compute_conv_rates(gauss, f, xᵤ, xₒ, Nₖ) )
 	
-	
-	function q_emp(f::Function, xᵤ::Real, xₒ::Real, Nᵢ::Integer)
-		fs(xᵤ, xₒ, Nᵢ) = summed_quadrature(f, xᵤ, xₒ, Nᵢ)
-		return log10( abs( (fs(xᵤ,xₒ,Nᵢ)-fs(xᵤ,xₒ,2*Nᵢ))/(fs(xᵤ,xₒ,2*Nᵢ)-fs(xᵤ,xₒ,4*Nᵢ)) ) ) / log10(2)
-	end
-	
-	function compute_integrals(formula::Function)
-		I = zeros(length(Nₖ))
-		t = zeros(length(Nₖ))
-		for i in eachindex(Nₖ)
-			t[i] = @elapsed I[i] = summed_quadrature(formula, xᵤ, xₒ, Nₖ[i])
-		end
-		return (I=I,t=t)
-	end
-	precompile(compute_integrals, (Function,))
-	
-	function compute_conv_rates(formula::Function)
-		return collect( q_emp(formula, xᵤ, xₒ, Nᵢ) for Nᵢ in Nₖ)
-	end
-	precompile(compute_conv_rates, (Function,))
-	
-	integrals = ( trapez=compute_integrals(trapez),
-	              simpson=compute_integrals(simpson),
-	              gauss=compute_integrals(gauss) )
-
-	convrates = ( trapez=compute_conv_rates(trapez),
-	              simpson=compute_conv_rates(simpson),
-	              gauss=compute_conv_rates(gauss) )
+	errors = ( trapez=abs.(integrals.trapez.I .- Iref),
+			   simpson=abs.(integrals.simpson.I .- Iref),
+			   gauss=abs.(integrals.gauss.I .- Iref) )
 
 	md"""
 	### Konvergenz-Verhalten
@@ -168,23 +183,28 @@ begin
 	εₖ = 1 ./ Nₖ[plot_range]
 	logεₖ = log10.(εₖ.^-1)
 	
-	pᵥ = hline([log10(0)]; label=nothing, color=:black, xlabel=md"``\log_{10}(\varepsilon^{-1})``", ylabel=md"``I``", yformatter = :plain, title="Ergebnisse", legend=:bottomleft)
-	scatter!(pᵥ, logεₖ, integrals.trapez.I[plot_range]; label="Trapez", linewidth=2)
-	scatter!(pᵥ, logεₖ, integrals.simpson.I[plot_range]; label="Simpson", linewidth=2)
-	scatter!(pᵥ, logεₖ, integrals.gauss.I[plot_range]; label="Gauß", linewidth=2)
+	pᵥ = hline([log10(0)]; label=nothing, color=:black, xlabel=md"``\log_{10}(\varepsilon^{-1})``", yformatter = :plain, title="Berechnete Approximationen", legend=:bottomright)
+	scatter!(pᵥ, logεₖ, integrals.trapez.I[plot_range]; label="Trapez")
+	scatter!(pᵥ, logεₖ, integrals.simpson.I[plot_range]; label="Simpson")
+	scatter!(pᵥ, logεₖ, integrals.gauss.I[plot_range]; label="Gauß")
 
-	pₖ = hline([log10(0)]; label=nothing, color=:black, xlabel=md"``\log_{10}(\varepsilon ^{-1})``", ylabel=md"``q_{emp}``", formatter = :plain, title="Empirische Konvergenzrate", ylims=(-1,5), legend=:bottomleft)
-	scatter!(pₖ, logεₖ, convrates.trapez[plot_range]; label="Trapez", linewidth=2)
-	scatter!(pₖ, logεₖ, convrates.simpson[plot_range]; label="Simpson", linewidth=2)
-	scatter!(pₖ, logεₖ, convrates.gauss[plot_range]; label="Gauß", linewidth=2)
+	pₑ = hline([log10(0)]; label=nothing, color=:black, xlabel=md"``\log_{10}(\varepsilon ^{-1})``", formatter = :plain, title=md"Fehler: ``\log_{10}(| I - \tilde{I} |)``", legend=:topright)
+	scatter!(pₑ, logεₖ, log10.(errors.trapez[plot_range]); label="Trapez")
+	scatter!(pₑ, logεₖ, log10.(errors.simpson[plot_range]); label="Simpson")
+	scatter!(pₑ, logεₖ, log10.(errors.gauss[plot_range]); label="Gauß")
 
-	pₜᵢ = plot(1;label=nothing, color=:black, xlabel=md"``\log_{10}(E)``", yformatter=:scientific, title="Rechenzeit", legend=:topright)
-	scatter!(pₜᵢ, log10.(abs.(integrals.trapez.I[plot_range] .- Iref)), integrals.trapez.t[plot_range]; label="Trapez", linewidth=2)
-	scatter!(pₜᵢ, log10.(abs.(integrals.simpson.I[plot_range] .- Iref)), integrals.simpson.t[plot_range]; label="Simpson", linewidth=2)
-	scatter!(pₜᵢ, log10.(abs.(integrals.gauss.I[plot_range] .- Iref)), integrals.gauss.t[plot_range]; label="Gauß", linewidth=2)
+	pₖ = hline([log10(0)]; label=nothing, color=:black, xlabel=md"``\log_{10}(\varepsilon ^{-1})``", formatter = :plain, title=md"``q_{emp}``", ylims=(-1,5), legend=:bottomleft)
+	scatter!(pₖ, logεₖ, convrates.trapez[plot_range]; label="Trapez")
+	scatter!(pₖ, logεₖ, convrates.simpson[plot_range]; label="Simpson")
+	scatter!(pₖ, logεₖ, convrates.gauss[plot_range]; label="Gauß")
+
+	pₜᵢ = plot(1;label=nothing, color=:black, xlabel=md"Fehler: ``\log_{10}(| I - \tilde{I} |)``", yformatter=:plain, title=md"Rechenzeit: ``\log_{10}(t)``", legend=:topright)
+	scatter!(pₜᵢ, log10.(errors.trapez[plot_range]), log10.(integrals.trapez.t[plot_range]); label="Trapez")
+	scatter!(pₜᵢ, log10.(errors.simpson[plot_range]), log10.(integrals.simpson.t[plot_range]); label="Simpson")
+	scatter!(pₜᵢ, log10.(errors.gauss[plot_range]), log10.(integrals.gauss.t[plot_range]); label="Gauß")
 	
 	md"""
-	$(plot(pᵥ, pₖ, pₜᵢ; layout=(3,1), size=(700, 800)))
+	$(plot(pᵥ, pₑ, pₖ, pₜᵢ; layout=(4,1), size=(680, 1000)))
 
 	Hinweis: Für die Berechnung der empirischen Konvergenzrate wurden neben der dargestellten Approximation noch welche mit doppelter und vierfacher Anzahl an Teilintervallen herangezogen."
 	"""
@@ -195,12 +215,14 @@ PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
 ColorSchemes = "35d6a980-a343-548e-a6ea-1d62b119f2f4"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
+PlutoTeachingTools = "661c6b06-c737-4d37-b85c-46df65de6f69"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 Polynomials = "f27b6e38-b328-58d1-80ce-0feddd5e7a45"
 
 [compat]
 ColorSchemes = "~3.21.0"
 Plots = "~1.38.12"
+PlutoTeachingTools = "~0.2.13"
 PlutoUI = "~0.7.51"
 Polynomials = "~3.2.12"
 """
@@ -211,7 +233,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.9.0"
 manifest_format = "2.0"
-project_hash = "69fe58edb872e77a6aea18fb2011a1cd37a30de8"
+project_hash = "cb0a7246789d986fbd92a5fb582e94c5967af79b"
 
 [[deps.AbstractPlutoDingetjes]]
 deps = ["Pkg"]
@@ -245,6 +267,12 @@ deps = ["Artifacts", "Bzip2_jll", "CompilerSupportLibraries_jll", "Fontconfig_jl
 git-tree-sha1 = "4b859a208b2397a7a623a03449e4636bdb17bcf2"
 uuid = "83423d85-b0ee-5818-9007-b63ccbeb887a"
 version = "1.16.1+1"
+
+[[deps.CodeTracking]]
+deps = ["InteractiveUtils", "UUIDs"]
+git-tree-sha1 = "a1296f0fe01a4c3f9bf0dc2934efbf4416f5db31"
+uuid = "da1fd8a2-8d9e-5ec2-8556-3022fb5608a2"
+version = "1.3.4"
 
 [[deps.CodecZlib]]
 deps = ["TranscodingStreams", "Zlib_jll"]
@@ -323,6 +351,10 @@ git-tree-sha1 = "9e2f36d3c96a820c678f2f1f1782582fcf685bae"
 uuid = "8bb1440f-4735-579b-a4ab-409b98df4dab"
 version = "1.9.1"
 
+[[deps.Distributed]]
+deps = ["Random", "Serialization", "Sockets"]
+uuid = "8ba89e20-285c-5b6f-9357-94700520ee1b"
+
 [[deps.DocStringExtensions]]
 deps = ["LibGit2"]
 git-tree-sha1 = "2fb1e02f2b635d0845df5d7c167fec4dd739b00d"
@@ -333,6 +365,12 @@ version = "0.9.3"
 deps = ["ArgTools", "FileWatching", "LibCURL", "NetworkOptions"]
 uuid = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
 version = "1.6.0"
+
+[[deps.EpollShim_jll]]
+deps = ["Artifacts", "JLLWrappers", "Libdl"]
+git-tree-sha1 = "8e9441ee83492030ace98f9789a654a6d0b1f643"
+uuid = "2702e6a9-849d-5ed8-8c21-79e8b8f9ee43"
+version = "0.0.20230411+0"
 
 [[deps.Expat_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -489,6 +527,12 @@ git-tree-sha1 = "6f2675ef130a300a112286de91973805fcc5ffbc"
 uuid = "aacddb02-875f-59d6-b918-886e6ef4fbf8"
 version = "2.1.91+0"
 
+[[deps.JuliaInterpreter]]
+deps = ["CodeTracking", "InteractiveUtils", "Random", "UUIDs"]
+git-tree-sha1 = "81dc6aefcbe7421bd62cb6ca0e700779330acff8"
+uuid = "aa1ae85d-cabe-5617-a682-6adf51b2e16a"
+version = "0.9.25"
+
 [[deps.LAME_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "f6250b16881adf048549549fba48b1161acdac8c"
@@ -624,6 +668,12 @@ deps = ["Dates", "Logging"]
 git-tree-sha1 = "cedb76b37bc5a6c702ade66be44f831fa23c681e"
 uuid = "e6f89c97-d47a-5376-807f-9c37f3926c36"
 version = "1.0.0"
+
+[[deps.LoweredCodeUtils]]
+deps = ["JuliaInterpreter"]
+git-tree-sha1 = "60168780555f3e663c536500aa790b6368adc02a"
+uuid = "6f1432cf-f94c-5a45-995e-cdbf5db27b0b"
+version = "2.3.0"
 
 [[deps.MIMEs]]
 git-tree-sha1 = "65f28ad4b594aebe22157d6fac869786a255b7eb"
@@ -783,6 +833,24 @@ version = "1.38.12"
     ImageInTerminal = "d8c32880-2388-543b-8c61-d9f865259254"
     Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"
 
+[[deps.PlutoHooks]]
+deps = ["InteractiveUtils", "Markdown", "UUIDs"]
+git-tree-sha1 = "072cdf20c9b0507fdd977d7d246d90030609674b"
+uuid = "0ff47ea0-7a50-410d-8455-4348d5de0774"
+version = "0.0.5"
+
+[[deps.PlutoLinks]]
+deps = ["FileWatching", "InteractiveUtils", "Markdown", "PlutoHooks", "Revise", "UUIDs"]
+git-tree-sha1 = "8f5fa7056e6dcfb23ac5211de38e6c03f6367794"
+uuid = "0ff47ea0-7a50-410d-8455-4348d5de0420"
+version = "0.1.6"
+
+[[deps.PlutoTeachingTools]]
+deps = ["Downloads", "HypertextLiteral", "LaTeXStrings", "Latexify", "Markdown", "PlutoLinks", "PlutoUI", "Random"]
+git-tree-sha1 = "542de5acb35585afcf202a6d3361b430bc1c3fbd"
+uuid = "661c6b06-c737-4d37-b85c-46df65de6f69"
+version = "0.2.13"
+
 [[deps.PlutoUI]]
 deps = ["AbstractPlutoDingetjes", "Base64", "ColorTypes", "Dates", "FixedPointNumbers", "Hyperscript", "HypertextLiteral", "IOCapture", "InteractiveUtils", "JSON", "Logging", "MIMEs", "Markdown", "Random", "Reexport", "URIs", "UUIDs"]
 git-tree-sha1 = "b478a748be27bd2f2c73a7690da219d0844db305"
@@ -863,6 +931,12 @@ deps = ["UUIDs"]
 git-tree-sha1 = "838a3a4188e2ded87a4f9f184b4b0d78a1e91cb7"
 uuid = "ae029012-a4dd-5104-9daa-d747884805df"
 version = "1.3.0"
+
+[[deps.Revise]]
+deps = ["CodeTracking", "Distributed", "FileWatching", "JuliaInterpreter", "LibGit2", "LoweredCodeUtils", "OrderedCollections", "Pkg", "REPL", "Requires", "UUIDs", "Unicode"]
+git-tree-sha1 = "7364d5f608f3492a4352ab1d40b3916955dc6aec"
+uuid = "295af30f-e4ad-537b-8983-00126c2a3abe"
+version = "3.5.5"
 
 [[deps.SHA]]
 uuid = "ea8e919c-243c-51af-8825-aaa63cd721ce"
@@ -990,7 +1064,7 @@ uuid = "41fe7b60-77ed-43a1-b4f0-825fd5a5650d"
 version = "0.2.0"
 
 [[deps.Wayland_jll]]
-deps = ["Artifacts", "Expat_jll", "JLLWrappers", "Libdl", "Libffi_jll", "Pkg", "XML2_jll"]
+deps = ["Artifacts", "EpollShim_jll", "Expat_jll", "JLLWrappers", "Libdl", "Libffi_jll", "Pkg", "XML2_jll"]
 git-tree-sha1 = "ed8d92d9774b077c53e1da50fd81a36af3744c1c"
 uuid = "a2964d1f-97da-50d4-b82a-358c7fce9d89"
 version = "1.21.0+0"
@@ -1221,12 +1295,13 @@ version = "1.4.1+0"
 """
 
 # ╔═╡ Cell order:
+# ╟─dbe56325-4783-4472-a51c-12c5892a76d6
 # ╟─5b0e45ec-550c-11ed-31c7-77431a2257f7
 # ╟─91ccf2e2-ca10-4d8f-b3cd-919e6072efd7
 # ╟─e95f1503-5398-44fa-8a16-603528222e18
 # ╟─4ef8f837-9690-4c75-b665-a1f38ac414e3
 # ╟─2d539c9e-a196-4737-a958-d32118742866
-# ╠═0386c671-9c69-46d0-be2b-907778a4cb6c
+# ╟─0386c671-9c69-46d0-be2b-907778a4cb6c
 # ╟─79fa9d43-5283-428b-97fe-e05caa31afa2
 # ╟─ef08bf33-05c6-4733-a439-530bb27b229b
 # ╟─00000000-0000-0000-0000-000000000001

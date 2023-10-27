@@ -16,7 +16,8 @@ end
 
 # ╔═╡ 19d274d8-811a-11ed-1624-9b1ff21ba3a2
 begin
-	using PlutoUI, Plots, ColorSchemes, LaTeXStrings
+	using PlutoUI, PlutoTeachingTools
+	using Plots, ColorSchemes, LaTeXStrings
 	
 	H(x) = x < 0 ? 0 : 1
 	precompile(H, (Function, Float64))
@@ -32,8 +33,17 @@ begin
 	"""
 end
 
+# ╔═╡ e3026a9f-97af-4a60-8928-d93e891ff8f5
+ChooseDisplayMode()
+
 # ╔═╡ 13c84a6b-aead-4c90-8b6a-9a095d760531
 begin
+	possibleforces = [
+		begin t -> sin(t) end => "sin(t)"
+		begin t -> cos(t) end => "cos(t)"
+		begin t -> H(t-2)*sin(t) end => "H(t-2)*sin(t)"
+		begin t -> sin(t)*(1-H(t-2)) end => "sin(t)*(1-H(t-2))"
+	]
 	md"""
 	Es wird ein Ein-Massen-Schwinger mit Masse **m**, Federkonstant **c**, Dämpfungskonstante **d** und antreibender Kraft **F(t)** betrachtet.
 
@@ -49,26 +59,17 @@ begin
 	- ``\delta = \frac{1}{2} \frac{d}{m}``
 
 	## Gewählte Parameter
+	| ``m =`` $( @bind m Select(collect(0.1:0.1:10); default=1) ) | ``c =`` $( @bind c Select(collect(0:0.01:2); default=1) ) | ``d =`` $( @bind d Select(collect(0:0.01:2); default=1) ) | ``t_e =`` $( @bind tₑ Select([10,20,50,100,200,500,1000]; default=10) ) | ``x_0 =``  $( @bind x₀ Select([-10,-5,-2,-1,0,1,2,5,10]; default=0) ) | ``\dot{x}_0 =``  $( @bind v₀ Select([-10,-5,-2,-1,0,1,2,5,10]; default=0) ) |
+	|----|----|----|----|----|----|
+	|    |    |    |    |    |    |
 	
-	##### ``m =`` $(@bind m Slider(0.1:0.1:10; default=1, show_value=true))
 
-	##### ``c =`` $(@bind c Slider(0.0:0.01:2; default=1, show_value=true))
-
-	##### ``d =`` $(@bind d Slider(0.0:0.01:2; default=1, show_value=true))
-
-	##### ``F(t) =`` $(@bind F_string TextField(;default="H(t-2)*sin(t)"))
-
-	##### ``t_e =``  $(@bind tₑ Slider(10:10:1000; default="1", show_value=true))
-
-	##### ``x(t=0) =``  $(@bind x₀ Slider(-10:0.1:10; default=0, show_value=true))
-
-	##### ``\dot{x}(t=0) =`` $(@bind v₀ Slider(-10:0.1:10; default=0, show_value=true))
+	##### ``F(t) =`` $(@bind F Select(possibleforces))
 	"""
 end
 
 # ╔═╡ a2ec8fce-f007-49b3-8d49-d982f22fccee
 begin
-	F  = eval(Meta.parse("t -> " * F_string))
 	δ  = d/m/2
 	δ2 = d/m
 	ω  = sqrt(c/m)
@@ -90,29 +91,35 @@ begin
 	## Diskretisierung
 
 	Zunächst wird die DGL zweiter Ordnung als zwei DGLs erster Ordnung formuliert:
-
-	##### ``\dot{v} + 2\delta v + \omega ^2 x = \frac{F}{m}``
 	
-	##### ``v = \dot{x}``
+	
+	| ``\dot{v} + 2\delta v + \omega ^2 x = \frac{F}{m}`` | , | ``v = \dot{x}`` |
+	|----|----|----|
+	|    |    |    |
 
 	Damit ergeben sich die Funktionen:
 
-	##### ``f_v(x,v,t) = \frac{F(t)}{m} - 2\delta v - \omega ^2x``
-	
-	##### ``f_x(x,v,t) = v``
+	| ``f_v(x,v,t) = \frac{F(t)}{m} - 2\delta v - \omega ^2x`` | , | ``f_x(x,v,t) = v`` |
+	|----|----|----|
+	|    |    |    |
 
 	Für das *explizite* Euler-Verfahren folgt damit:
 
-	##### ``x_{n+1} = x_n + \Delta t[ v_n ]``
-
-	##### ``v_{n+1} = v_n + \Delta t[ \frac{F(t_n)}{m} - 2\delta v_n - \omega ^2x_n ]``
+	| ``x_{n+1} = x_n + \Delta t[ v_n ]`` | , | ``v_{n+1} = v_n + \Delta t[ \frac{F(t_n)}{m} - 2\delta v_n - \omega ^2x_n ]`` |
+	|----|----|----|
+	|    |    |    |
 	
 	Und für das *implizite* Euler-Verfahren folgt damit:
 
-	##### ``x_{n+1} = x_n + \Delta t[ v_{n+1} ]``
+	| ``x_{n+1} = x_n + \Delta t[ v_{n+1} ]`` | , | ``v_{n+1} = \frac{ v_n + \Delta t [ \frac{F(t_{n+1})}{m} - \omega ^2x_n ] }{ 1 + \Delta t[ 2\delta  + \Delta t\omega ^2 ] }`` |
+	|----|----|----|
+	|    |    |    |
+	"""
+end
 
-	##### ``v_{n+1} = \frac{ v_n + \Delta t [ \frac{F(t_{n+1})}{m} - \omega ^2x_n ] }{ 1 + \Delta t[ 2\delta  + \Delta t\omega ^2 ] }``
-	
+# ╔═╡ cc99c31f-202d-46b2-8e9a-022d21ba28f5
+begin
+	md"""
 	##### ``\Delta t =`` $(@bind Δt Slider(0.001:0.001:0.2; default=0.1, show_value=true))
 	"""
 end
@@ -122,10 +129,10 @@ begin
 	t = collect(0:Δt:tₑ)
 
 	pf = plot(0:0.01:tₑ, F.(0:0.01:tₑ), ; xlabel=L"t", ylabel=L"F", linewidth=2, color=:blue, framestyle = :zerolines, legend=nothing)
-	pₓ = hline([x₀]; xlabel=L"t", ylabel=L"x", label=L"x_0", linewidth=2, color=:grey, framestyle = :zerolines, legend=:bottom)
-	pᵥ = hline([v₀]; xlabel=L"t", ylabel=L"v", label=L"v_0", linewidth=2, color=:grey, framestyle = :zerolines, legend=:bottom)
+	pₓ = hline([x₀]; xlabel=L"t", ylabel=L"x", label=L"x_0", linewidth=2, color=:grey, framestyle = :zerolines)
+	pᵥ = hline([v₀]; xlabel=L"t", ylabel=L"v", label=L"v_0", linewidth=2, color=:grey, framestyle = :zerolines)
 
-	pₚ = plot(1; label=false, xlabel=L"x", ylabel=L"v", framestyle = :zerolines, size=(700,700))
+	pₚ = plot(1; label=false, xlabel=L"x", ylabel=L"v", framestyle = :zerolines, size=(680,680))
 	
 	for (method, name) in zip((euler_forward_pendulum, euler_backward_pendulum), ("Euler vorwärts", "Euler rückwärts"))
 		x = zeros(length(t))
@@ -143,11 +150,11 @@ begin
 		md"""
 	## Darstellung der Ergebnisse über die Zeit
 
-	$(plot(pf, pₓ, pᵥ; layout=(3,1), size=(700, 225*3)))
+	$(plot(pf, pₓ, pᵥ; layout=(3,1), size=(680, 225*3)))
 	"""
 end
 
-# ╔═╡ 89ab77fd-6049-46c8-946e-e3a1347ef8c6
+# ╔═╡ 0dc331a9-12ac-4446-a786-5f7622eda7c7
 begin
 	md"""
 	## Darstellung in der Phasen-Ebene
@@ -162,12 +169,14 @@ PLUTO_PROJECT_TOML_CONTENTS = """
 ColorSchemes = "35d6a980-a343-548e-a6ea-1d62b119f2f4"
 LaTeXStrings = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
+PlutoTeachingTools = "661c6b06-c737-4d37-b85c-46df65de6f69"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 
 [compat]
 ColorSchemes = "~3.20.0"
 LaTeXStrings = "~1.3.0"
 Plots = "~1.38.0"
+PlutoTeachingTools = "~0.2.13"
 PlutoUI = "~0.7.49"
 """
 
@@ -177,7 +186,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.9.0"
 manifest_format = "2.0"
-project_hash = "aabd9fc15ef66da22ef49b9a0369cff0bf7e41d1"
+project_hash = "b9674cb86664d5bc8cfb4a511134f80205936164"
 
 [[deps.AbstractPlutoDingetjes]]
 deps = ["Pkg"]
@@ -211,6 +220,12 @@ deps = ["Artifacts", "Bzip2_jll", "CompilerSupportLibraries_jll", "Fontconfig_jl
 git-tree-sha1 = "4b859a208b2397a7a623a03449e4636bdb17bcf2"
 uuid = "83423d85-b0ee-5818-9007-b63ccbeb887a"
 version = "1.16.1+1"
+
+[[deps.CodeTracking]]
+deps = ["InteractiveUtils", "UUIDs"]
+git-tree-sha1 = "a1296f0fe01a4c3f9bf0dc2934efbf4416f5db31"
+uuid = "da1fd8a2-8d9e-5ec2-8556-3022fb5608a2"
+version = "1.3.4"
 
 [[deps.CodecZlib]]
 deps = ["TranscodingStreams", "Zlib_jll"]
@@ -289,6 +304,10 @@ git-tree-sha1 = "9e2f36d3c96a820c678f2f1f1782582fcf685bae"
 uuid = "8bb1440f-4735-579b-a4ab-409b98df4dab"
 version = "1.9.1"
 
+[[deps.Distributed]]
+deps = ["Random", "Serialization", "Sockets"]
+uuid = "8ba89e20-285c-5b6f-9357-94700520ee1b"
+
 [[deps.DocStringExtensions]]
 deps = ["LibGit2"]
 git-tree-sha1 = "2fb1e02f2b635d0845df5d7c167fec4dd739b00d"
@@ -299,6 +318,12 @@ version = "0.9.3"
 deps = ["ArgTools", "FileWatching", "LibCURL", "NetworkOptions"]
 uuid = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
 version = "1.6.0"
+
+[[deps.EpollShim_jll]]
+deps = ["Artifacts", "JLLWrappers", "Libdl"]
+git-tree-sha1 = "8e9441ee83492030ace98f9789a654a6d0b1f643"
+uuid = "2702e6a9-849d-5ed8-8c21-79e8b8f9ee43"
+version = "0.0.20230411+0"
 
 [[deps.ExceptionUnwrapping]]
 deps = ["Test"]
@@ -461,6 +486,12 @@ git-tree-sha1 = "6f2675ef130a300a112286de91973805fcc5ffbc"
 uuid = "aacddb02-875f-59d6-b918-886e6ef4fbf8"
 version = "2.1.91+0"
 
+[[deps.JuliaInterpreter]]
+deps = ["CodeTracking", "InteractiveUtils", "Random", "UUIDs"]
+git-tree-sha1 = "81dc6aefcbe7421bd62cb6ca0e700779330acff8"
+uuid = "aa1ae85d-cabe-5617-a682-6adf51b2e16a"
+version = "0.9.25"
+
 [[deps.LAME_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "f6250b16881adf048549549fba48b1161acdac8c"
@@ -602,6 +633,12 @@ deps = ["Dates", "Logging"]
 git-tree-sha1 = "0d097476b6c381ab7906460ef1ef1638fbce1d91"
 uuid = "e6f89c97-d47a-5376-807f-9c37f3926c36"
 version = "1.0.2"
+
+[[deps.LoweredCodeUtils]]
+deps = ["JuliaInterpreter"]
+git-tree-sha1 = "60168780555f3e663c536500aa790b6368adc02a"
+uuid = "6f1432cf-f94c-5a45-995e-cdbf5db27b0b"
+version = "2.3.0"
 
 [[deps.MIMEs]]
 git-tree-sha1 = "65f28ad4b594aebe22157d6fac869786a255b7eb"
@@ -761,6 +798,24 @@ version = "1.38.17"
     ImageInTerminal = "d8c32880-2388-543b-8c61-d9f865259254"
     Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"
 
+[[deps.PlutoHooks]]
+deps = ["InteractiveUtils", "Markdown", "UUIDs"]
+git-tree-sha1 = "072cdf20c9b0507fdd977d7d246d90030609674b"
+uuid = "0ff47ea0-7a50-410d-8455-4348d5de0774"
+version = "0.0.5"
+
+[[deps.PlutoLinks]]
+deps = ["FileWatching", "InteractiveUtils", "Markdown", "PlutoHooks", "Revise", "UUIDs"]
+git-tree-sha1 = "8f5fa7056e6dcfb23ac5211de38e6c03f6367794"
+uuid = "0ff47ea0-7a50-410d-8455-4348d5de0420"
+version = "0.1.6"
+
+[[deps.PlutoTeachingTools]]
+deps = ["Downloads", "HypertextLiteral", "LaTeXStrings", "Latexify", "Markdown", "PlutoLinks", "PlutoUI", "Random"]
+git-tree-sha1 = "542de5acb35585afcf202a6d3361b430bc1c3fbd"
+uuid = "661c6b06-c737-4d37-b85c-46df65de6f69"
+version = "0.2.13"
+
 [[deps.PlutoUI]]
 deps = ["AbstractPlutoDingetjes", "Base64", "ColorTypes", "Dates", "FixedPointNumbers", "Hyperscript", "HypertextLiteral", "IOCapture", "InteractiveUtils", "JSON", "Logging", "MIMEs", "Markdown", "Random", "Reexport", "URIs", "UUIDs"]
 git-tree-sha1 = "e47cd150dbe0443c3a3651bc5b9cbd5576ab75b7"
@@ -825,6 +880,12 @@ deps = ["UUIDs"]
 git-tree-sha1 = "838a3a4188e2ded87a4f9f184b4b0d78a1e91cb7"
 uuid = "ae029012-a4dd-5104-9daa-d747884805df"
 version = "1.3.0"
+
+[[deps.Revise]]
+deps = ["CodeTracking", "Distributed", "FileWatching", "JuliaInterpreter", "LibGit2", "LoweredCodeUtils", "OrderedCollections", "Pkg", "REPL", "Requires", "UUIDs", "Unicode"]
+git-tree-sha1 = "7364d5f608f3492a4352ab1d40b3916955dc6aec"
+uuid = "295af30f-e4ad-537b-8983-00126c2a3abe"
+version = "3.5.5"
 
 [[deps.SHA]]
 uuid = "ea8e919c-243c-51af-8825-aaa63cd721ce"
@@ -978,7 +1039,7 @@ uuid = "41fe7b60-77ed-43a1-b4f0-825fd5a5650d"
 version = "0.2.0"
 
 [[deps.Wayland_jll]]
-deps = ["Artifacts", "Expat_jll", "JLLWrappers", "Libdl", "Libffi_jll", "Pkg", "XML2_jll"]
+deps = ["Artifacts", "EpollShim_jll", "Expat_jll", "JLLWrappers", "Libdl", "Libffi_jll", "Pkg", "XML2_jll"]
 git-tree-sha1 = "ed8d92d9774b077c53e1da50fd81a36af3744c1c"
 uuid = "a2964d1f-97da-50d4-b82a-358c7fce9d89"
 version = "1.21.0+0"
@@ -1215,10 +1276,12 @@ version = "1.4.1+0"
 """
 
 # ╔═╡ Cell order:
+# ╟─e3026a9f-97af-4a60-8928-d93e891ff8f5
 # ╟─19d274d8-811a-11ed-1624-9b1ff21ba3a2
 # ╟─13c84a6b-aead-4c90-8b6a-9a095d760531
 # ╟─a2ec8fce-f007-49b3-8d49-d982f22fccee
 # ╟─e81e8b10-7500-4a1c-986c-66adc90fc477
-# ╟─89ab77fd-6049-46c8-946e-e3a1347ef8c6
+# ╟─cc99c31f-202d-46b2-8e9a-022d21ba28f5
+# ╟─0dc331a9-12ac-4446-a786-5f7622eda7c7
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

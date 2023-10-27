@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.19.26
+# v0.19.27
 
 using Markdown
 using InteractiveUtils
@@ -47,7 +47,7 @@ begin
 	function plot_given_geometry(; kwargs...)
 		x = 0:0.01:3
 		r = exact_radius.(x)
-		p = plot(vcat(x, [3.0]), vcat(r, [0.0]); label="Träger", size=(700,300), color=:black, linewidth=2, ylims=(-0.2,0.2), xlabel=L"x\;[m]", ylabel=L"r\;[m]", kwargs...)
+		p = plot(vcat(x, [3.0]), vcat(r, [0.0]); label="Träger", size=(680,300), color=:black, linewidth=2, ylims=(-0.2,0.2), xlabel=md"``x\;[m]``", ylabel=L"r\;[m]", kwargs...)
 		plot!(p, vcat(x, [3.0]), -vcat(r, [0.0]); color=:black, linewidth=2, label=false)
 		scatter!(p, xᵣ, rᵣ; color=:blue, label="Gegebene Werte")
 		return x, r, p
@@ -203,7 +203,7 @@ end
 begin
 	Pᵣ = create_interpolation_polynomial(subintervals)
 	
-	p₂ = plot(vcat(xₚ, [3.0]), vcat(rₚ, [0.0]); label="Träger", size=(700,400), color=:black, linewidth=2, ylims=(-0.2,0.2), xlabel=L"x\;[m]", ylabel=L"r\;[m]")
+	p₂ = plot(vcat(xₚ, [3.0]), vcat(rₚ, [0.0]); label="Träger", size=(680,400), color=:black, linewidth=2, ylims=(-0.2,0.2), xlabel=L"x\;[m]", ylabel=L"r\;[m]")
 	plot!(p₂, vcat(xₚ, [3.0]), -vcat(rₚ, [0.0]); color=:black, linewidth=2, label=false)
 	plot!(p₂, xₚ, Pᵣ.(xₚ); color=:red, linewidth=2, label=L"P_r")
 	scatter!(p₂, xᵣ, rᵣ; color=:blue, label="Gegebene Werte")

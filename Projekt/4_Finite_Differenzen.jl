@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.19.26
+# v0.19.27
 
 using Markdown
 using InteractiveUtils
@@ -48,7 +48,7 @@ begin
 	function plot_given_geometry(; kwargs...)
 		x = 0:0.01:3
 		r = exact_radius.(x)
-		p = plot(vcat(x, [3.0]), vcat(r, [0.0]); label="Träger", size=(700,300), color=:black, linewidth=2, ylims=(-0.2,0.2), xlabel=L"x\;[m]", ylabel=L"r\;[m]", kwargs...)
+		p = plot(vcat(x, [3.0]), vcat(r, [0.0]); label="Träger", size=(680,300), color=:black, linewidth=2, ylims=(-0.2,0.2), xlabel=md"``x\;[m]``", ylabel=md"``r\;[m]``", kwargs...)
 		plot!(p, vcat(x, [3.0]), -vcat(r, [0.0]); color=:black, linewidth=2, label=false)
 		scatter!(p, xᵣ, rᵣ; color=:blue, label="Gegebene Werte")
 		return x, r, p
@@ -135,7 +135,7 @@ begin
 	end
 	r = create_interpolation_polynomial(subintervals)
 
-	xₚ, rₚ, p₀ = plot_given_geometry(; size=(700,300))
+	xₚ, rₚ, p₀ = plot_given_geometry(; size=(680,300))
 	plot!(p₀, xₚ, r.(xₚ); color=:red, linewidth=2, label=L"r(x)")
 
 	md"""
@@ -146,9 +146,8 @@ end
 
 # ╔═╡ 3b32b33b-d9af-4f99-a95c-9a575bd97ff0
 begin
-
 	md"""
-	- **Differenzenquotienten**: Ein zentrale Differenzen quotient wird zur Schätzung der zweten Aleitung einer Beispiel Funktion ``u(x) = \frac{4x^3}{\pi r(x) ^4}`` genutzt. Dabei wird eine Unterteilung in $(@bind Ndq Slider(10:10:1000; show_value=true, default=300)) Teilintervalle verwendet.
+	- **Differenzenquotienten**: Ein zentrale Differenzen quotient wird zur Schätzung der zweten Aleitung einer Beispiel Funktion ``u(x) = \frac{4x^3}{\pi r(x) ^4}`` genutzt. Für eine Unterteilung in $( @bind Ndq Select([10,15,20,25,50,100,200,500,1000]; default=200) ) Teilintervalle ergibt sich zum Beispiel:
 	"""
 end
 
@@ -166,7 +165,7 @@ begin
 		return ε, xᵢ, ∂²ₓuᵢ, ∂²ₓuᵢᵣₑ, Eᵢ
 	end
 	ε, xdq, ∂²ₓuᵢ, ∂²ₓuᵢᵣₑ, Eᵢ = compute_finite_differences(Ndq)
-	p₁ = plot(xₚ, ∂²ₓu.(xₚ); color=:blue, linewidth=2, label=L"u''(x)", ylabel=L"u", xlabel=L"x\;[m]", size=(700,300))
+	p₁ = plot(xₚ, ∂²ₓu.(xₚ); color=:blue, linewidth=2, label=L"u''(x)", ylabel=L"u", xlabel=L"x\;[m]", size=(680,300))
 	scatter!(p₁, xdq, ∂²ₓuᵢ; color=:red, linewidth=2, label=L"DQ")
 
 	md"""
@@ -187,38 +186,7 @@ end
 
 # ╔═╡ 7a0d233c-f6e5-4827-83b2-31dcc7b5303f
 begin
-	EI(x) = 210e9*π/4*r(x)^4 # Check value of E
-	if quadraturerule == "Trapez-Regel"
-		Nrange = 10:10:1000
-	elseif quadraturerule == "Simpson-Regel"
-		Nrange = 11:10:1001
-	end
-
-	md"""
-	## Nächster Schritt
-
-	Die Durchbiegung des Balkens wird approximiert. Dazu werden die Differentialgleichungen ``M'' = 0`` (keine Streckenlast) und ``w'' = -\frac{1}{EI}M`` jeweils mit einem zentralen Differenzenquotienten diskretisiert.
-
-	Dabei werden ``E=`` und ``\frac{\pi}{4}r^4`` sowie ``N = `` $(@bind N Slider(Nrange; show_value=true)) äquidistante Stützstellen genutzt.
-	"""
-end
-
-# ╔═╡ 1e378b09-ddd7-4547-b73a-8dd3d28897ad
-begin
-	md"""
-	### Diskretisierung und Randbedingungen
-
-	Zunächst wird die Gleichung ``M'' = 0`` durch ``\frac{M_{i-1} - 2M_{i} + M_{i+1}}{\Delta x^2} = 0`` für ``1 < i < N`` diskretisiert.
-
-	Es wird die Dirichlet-Randbedingung ``M_{N} = 0`` angesetzt. Außerdem wird die Querkraft am rechten Ende mit ``M'_{N} = Q_{N} \approx \frac{M_{N-2} - 4M_{N-1} + 3M_{N}}{2\Delta x} = F`` für eine Kraft ``F=`` $(@bind F Slider(100:100:1000; default=100, show_value=true)) ``\text{N}`` an dem Balkenende (nach unten gerichtet).
-
-	Nach Aufstellen aller Gleichungen ergibt sich die System Matrix:
-	"""
-end
-
-# ╔═╡ 8862b686-50f3-407f-a31c-379284ee8193
-begin
-	function prepare_and_solve_system(N::Integer, F::Real)
+	function prepare_and_solve_system(N::Integer, qr::String, F::Real)
 		Δx = 3/(N-1)
 		xᵢ = 0:Δx:3
 		nnodes = length(xᵢ)
@@ -228,17 +196,17 @@ begin
 
 		for i in 2:nnodes-1
 				# M''ᵢ = 0
-			Aₘ[i-1,i-1] = 1/Δx^2
-			Aₘ[i-1,i] = -2/Δx^2
-			Aₘ[i-1,i+1] = 1/Δx^2
+			Aₘ[i,i-1] = 1/Δx^2
+			Aₘ[i,i] = -2/Δx^2
+			Aₘ[i,i+1] = 1/Δx^2
 		end
 			# Mₙ = 0
-		Aₘ[end-1,end] = 1
+		Aₘ[end,end] = 1
 			# Qₙ = F
-		Aₘ[end,end-2] = -3/(2*Δx)
-		Aₘ[end,end-1] = 4/(2*Δx)
-		Aₘ[end,end] = -1/(2*Δx)
-		bₘ[end] = F
+		Aₘ[1,end-2] = -3/(2*Δx)
+		Aₘ[1,end-1] = 4/(2*Δx)
+		Aₘ[1,end] = -1/(2*Δx)
+		bₘ[1] = F
 
 		Mᵢ = Aₘ\bₘ
 
@@ -248,15 +216,15 @@ begin
 			# w₁ = 0
 		Aw[1,1] = 1
 			# w'₁ = 0
-		Aw[2,1] = -3/(2*Δx)
-		Aw[2,2] = 4/(2*Δx)
-		Aw[2,3] = 3/(2*Δx)
+		Aw[nnodes,1] = -3/(2*Δx)
+		Aw[nnodes,2] = 4/(2*Δx)
+		Aw[nnodes,3] = 3/(2*Δx)
 		for i in 2:nnodes-1
 				# w''ᵢ = -1/EI Mᵢ
-			Aw[i+1,i-1] = 1/Δx^2
-			Aw[i+1,i] = -2/Δx^2
-			Aw[i+1,i+1] = 1/Δx^2
-			bw[i+1] = -1/EI(xᵢ[i]) * Mᵢ[i]
+			Aw[i,i-1] = 1/Δx^2
+			Aw[i,i  ] = -2/Δx^2
+			Aw[i,i+1] = 1/Δx^2
+			bw[i] = -1/EI(xᵢ[i]) * Mᵢ[i]
 		end
 
 		wᵢ = Aw\bw
@@ -272,11 +240,11 @@ begin
 		end
 
 		Π = 0.0
-		if quadraturerule == "Trapez-Regel"
+		if qr == "Trapez-Regel"
 			for i in 1:nnodes-1
 				Π += -0.5*trapez(xᵢ[i], xᵢ[i+1], κ(i)*Mᵢ[i], κ(i+1)*Mᵢ[i+1])
 			end
-		elseif quadraturerule == "Simpson-Regel"
+		elseif qr == "Simpson-Regel"
 			for I in 1:round(Int, nnodes/2)-1
 				i = 1+2*(I-1)
 				Π += -0.5*simpson(xᵢ[i], xᵢ[i+1], xᵢ[i+2], κ(i)*Mᵢ[i], κ(i+1)*Mᵢ[i+1], κ(i+2)*Mᵢ[i+2])
@@ -286,7 +254,36 @@ begin
 		return xᵢ, Aₘ, bₘ, Aw, bw, Mᵢ, wᵢ, Π
 	end
 	
-	xᵢ, Aₘ, bₘ, Aw, bw, Mᵢ, wᵢ, Π = prepare_and_solve_system(N, F)
+	EI(x) = 210e9*π/4*r(x)^4
+	I(x) = π/4*r(x)^4
+	Nrange = [10,20,50,70,100,200,500,700,1000]
+	quadraturerule == "Simpson-Regel"  ? Nrange .+= 1 : nothing
+
+	md"""
+	## Nächster Schritt
+
+	Die Durchbiegung des Balkens wird approximiert. Dazu werden die Differentialgleichungen ``M'' = 0`` (keine Streckenlast) und ``w'' = -\frac{1}{EI}M`` jeweils mit einem zentralen Differenzenquotienten diskretisiert. Ziel ist es zunächst, eine ausreichende Anzahl Stützstellen zu finden, um anschließend brauchbare Ergebnisse zu berechnen.
+
+	Dabei werden ``E=210\,\text{GPa}`` und ``I = \frac{\pi}{4}r^4`` sowie ``N = `` $(@bind N Select(Nrange)) äquidistante Stützstellen genutzt.
+	"""
+end
+
+# ╔═╡ 1e378b09-ddd7-4547-b73a-8dd3d28897ad
+begin
+	md"""
+	### Diskretisierung und Randbedingungen
+
+	Zunächst wird die Gleichung ``M'' = 0`` durch ``\frac{M_{i-1} - 2M_{i} + M_{i+1}}{\Delta x^2} = 0`` für ``1 < i < N`` diskretisiert.
+
+	Es wird die Dirichlet-Randbedingung ``M_{N} = 0`` angesetzt. Außerdem wird die Querkraft am rechten Ende mit ``M'_{N} = Q_{N} \approx \frac{M_{N-2} - 4M_{N-1} + 3M_{N}}{2\Delta x} = F`` für eine Kraft ``F=`` $(@bind F Select(collect(100:100:1000))) ``\text{N}`` an dem Balkenende (nach unten gerichtet).
+
+	Nach Aufstellen aller Gleichungen ergibt sich die System Matrix:
+	"""
+end
+
+# ╔═╡ 8862b686-50f3-407f-a31c-379284ee8193
+begin
+	xᵢ, Aₘ, bₘ, Aw, bw, Mᵢ, wᵢ, Π = prepare_and_solve_system(N, quadraturerule, F)
 	
 	Aₘ
 end
@@ -305,11 +302,11 @@ end
 
 # ╔═╡ beaf73d9-921b-4dec-ae7c-806c079ecc2d
 begin
-	p₂ = hline([0]; color=:black, xlabel=L"x\;[m]", ylabel=L"M\;[N]", yflip=true, label=false, size=(700,300))
+	p₂ = hline([0]; color=:black, xlabel=L"x\;[m]", ylabel=L"M\;[N]", yflip=true, label=false, size=(680,300))
 	scatter!(p₂, xᵢ, Mᵢ; color=:blue, label=false)
 	
 	md"""
-	Nach Lösen des Gleichungssystems ergiben sich folgende Werte für das Biegemoment an den Stützstellen:
+	Nach Lösen des Gleichungssystems ergeben sich folgende Werte für das Biegemoment an den Stützstellen:
 
 	$(p₂)
 	
@@ -317,7 +314,7 @@ begin
 
 	Es wird die Dirichlet-Randbedingung ``w_{1} = 0`` angesetzt. Außerdem wird die Verdrehungen am linken Ende durch ``w'_{1} \approx \frac{-3w_{1} + 4w_{2} - w_{3}}{2\Delta x} = 0`` approximiert. 
 
-	Nach Aufstellen aller Gleichungen ergibt sich die System Matrix:
+	Nach Aufstellen aller Gleichungen ergibt sich die System-Matrix:
 	"""
 end
 
@@ -341,11 +338,9 @@ end
 
 # ╔═╡ 2c4b71ce-c8fa-4740-b4e1-3977752f7f15
 begin
-	p₃ = hline([0]; color=:black, xlabel=L"x\;[m]", ylabel=L"w\;[m]", yflip=true, label=false, size=(700,300))
+	p₃ = hline([0]; color=:black, xlabel=L"x\;[m]", ylabel=L"w\;[m]", yflip=true, label=false, size=(680,300))
 	
 	scatter!(p₃, xᵢ, wᵢ; color=:blue, xlabel=L"x\;[m]", ylabel=L"w\;[m]", yflip=true, label=false)
-
-	c = F/wᵢ[end]
 
 	W = 0.5*F*wᵢ[end]
 	
@@ -354,9 +349,7 @@ begin
 
 	$(p₃)
 
-	Aus der Durchbiegung am Balkenende ergibt sich die Ersatzfedersteifigkeit zu
-	
-	``c = \frac{F}{w} =`` $(c) ``\text{N/m}``
+
 
 	Zur Kontrolle werden die äußere Arbeit ``W = \frac{1}{2}Fw_N`` und die Formänderunsenergie ``\Pi = \int \frac{1}{2} \frac{M^2}{EI} = \int -\frac{1}{2} w''M`` gegenübergestellt, wobei ``w''`` wieder über Differenzenquotienten angenähert und das Integral durch Quadratur berechnet wird:
 
@@ -368,27 +361,102 @@ end
 
 # ╔═╡ b5191567-c53d-49ad-a182-389e11d1523e
 begin
-	Πₙ = zeros(length(Nrange))
-	wₑ = zeros(length(Nrange))
-	for (i,nextN) in enumerate(Nrange)
+	convNrange = Nrange[1]:20:Nrange[end]
+	convNref = 10000
+	quadraturerule == "Simpson-Regel"  ? convNref += 1 : nothing
+	Πₙ = zeros(length(convNrange))
+	wₑ = zeros(length(convNrange))
+	for (i,nextN) in enumerate(convNrange)
 		local w
-		_, _, _, _, _, _, w, nextΠ = prepare_and_solve_system(nextN, F)
+		_, _, _, _, _, _, w, nextΠ = prepare_and_solve_system(nextN, quadraturerule, F)
 		Πₙ[i] = nextΠ
 		wₑ[i] = w[end]
 	end
-	_, _, _, _, _, _, w, Πref = prepare_and_solve_system(9*Nrange[end], F)
+	_, _, _, _, _, _, w, Πref = prepare_and_solve_system(convNref, quadraturerule, F)
 	wref = w[end]
 
-	p₄ = scatter(log10.(Nrange), log10.(abs.(Πₙ.-Πref)); xlabel=L"\lg(N)", ylabel=L"\lg(|\Pi - \Pi_{ref}|)", color=:blue, label=false, size=(700,300))
+	xtickrange = (vcat(10:10:100, 200:100:1000), [10,20,30,40,50,60,"",80,"",100, 200,300,400,"",600,"",800,"",1000])
 
-	p₅ = scatter(log10.(Nrange), log10.(abs.(wₑ.-wref)); xlabel=L"\lg(N)", ylabel=L"\lg(|w_{end} - w_{ref}|)", color=:blue, label=false, size=(700,300))
+	p₄ = scatter(convNrange, log10.(abs.(Πₙ.-Πref)); xlabel=L"N", ylabel=L"\lg(|\Pi - \Pi_{ref}|)", color=:blue, label=false, xscale=:log10, xticks=xtickrange)
+
+	p₅ = scatter(convNrange, log10.(abs.(wₑ.-wref)); xlabel=L"N", ylabel=L"\lg(|w_{N} - w_{N,ref}|)", color=:blue, label=false, xscale=:log10, xticks=xtickrange)
 
 	md"""
-	Abschließend wird das Konvergenzverhalten untersucht für die Formänderungsenergie und Durchbiegung am Balkenende, indem eine Lösung für verschiedene Anzahlen an Stützstellen berechnet wird. Das neunfache der größten Anzahl wird genutzt, um einen Referenzwert zu bestimmen. Die Differenenzen der Ergebnisse zum Referenzwert ergeben:
+	Zusätzlich wird das Konvergenzverhalten untersucht für die Formänderungsenergie und Durchbiegung am Balkenende, indem Lösungen für verschiedene Anzahlen an Stützstellen berechnet werden. Um einen Referenzwert zu erhalten, wurde eine Approximation mit $(convNref) Stützstellen berechnet. Die Differenenzen der Ergebnisse zum Referenzwert ergeben:
 
-	$(p₄)
+	$( plot(p₄, p₅; layout=(2,1), size=(680,600)) )
+	"""
+end
 
-	$(p₅)
+# ╔═╡ dc8d9295-2d4c-442a-a2cd-6868e74958d9
+begin
+	c = F/wᵢ[end]
+
+	md"""
+	## a) Ersatzfedersteifigkeit
+	Aus der Durchbiegung am Balkenende ergibt sich
+	
+	### ``c = \frac{F}{w} \approx`` $( round(c; sigdigits=3) ) ``\text{N/m}``
+	"""
+end
+
+# ╔═╡ 11b520ea-3010-4e92-8d26-cbea7bf4208c
+begin
+	Fb = c*0.01
+	xᵢb, _, _, _, _, Mᵢb, wᵢb, _ = prepare_and_solve_system(N, quadraturerule, Fb)
+	σᵢ = abs.(Mᵢb ./I.(xᵢb) .* r.(xᵢb)) .* 1e-6 # In MPa
+	pb = scatter(xᵢb, σᵢ; xlabel=md"``x\; [m]``", title=md"``\sigma_{max}\;[MPa]``", label=false)
+	
+	md"""
+	## b) Maximale Last
+
+	Zur Porbe wird zunächst die maximale Normalspannung an den Stützstellen für eine Kraft von
+	
+	``F=`` $(Fb) ``\,\text{N}`` 
+	
+	berechnet, welche nach der bestimmten Federsteifigkeit zu einer Verformung am Balkenende von ``1\,\text{cm}`` führen sollte. Tatsächlich berechnet wurde eine Verschiebung von $(wᵢb[end])``\,\text{m}``.
+
+	Die maximale Normalspannung wird dann mit ``\sigma_\text{max} = | \frac{M}{I}r |`` berechnet:
+
+	$( plot(p₀, pb; layout=(2,1), size=(680,500)) )
+
+	wobei der größte vorkommende Wert etwa $(round(maximum(σᵢ); sigdigits=5))``\;\text{MPa}`` ist.
+	"""
+end
+
+# ╔═╡ 509c6142-470b-468f-8af9-2694cb813d96
+begin
+	σₘₐₓ    = 180 # in MPa
+	Fₘₐₓexp = σₘₐₓ / maximum(σᵢ) * Fb
+	Ftest = Fₘₐₓexp .* collect(0.9:0.01:1.1)
+	σtest = zeros(length(Ftest))
+	wtest = zeros(length(Ftest))
+	for (i, F) in enumerate(Ftest)
+		_, _, _, _, _, M, w, _ = prepare_and_solve_system(N, quadraturerule, F)
+		σtest[i] = maximum( abs.(M ./I.(xᵢb) .* r.(xᵢb)) .* 1e-6 ) # in MPa
+		wtest[i] = w[end]
+	end
+
+	ptest = hline([σₘₐₓ]; xlabel=md"``F`` [N]", label=L"\sigma_{zul}", color=:black, xlims=(minimum(Ftest),maximum(Ftest)))
+	scatter!(ptest, Ftest, σtest; label=L"\sigma_{max}", color=:blue)
+
+	_, ind = findmin(σ -> abs(σ-σₘₐₓ), σtest)
+
+	Fₘₐₓ = Ftest[ind]
+	wₘₐₓ = wtest[ind]
+		
+	md"""
+	Da das Biegemoment linear mit der äußeren Last skaliert und die Verteilung der Normalspannung unverändert bleibt, kann an dem erhaltenen Wert, die maximal aufnehmbare Kraft abgeschätzt werden: ``F_\text{zul} \approx`` $(Fₘₐₓexp) ``\;\text{N}``
+
+	Zur Kontrolle werden Approximationen in einem Bereich von ``0.9 F_\text{zul}`` bis ``1.1 F_\text{zul}`` berechnet und ausgewertet:
+
+	$(ptest)
+
+	## Erhaltenen Werte für die Spannung, die am nächsten an dem zulässigen Grenzwert ist:
+
+	``F_\text{zul}\approx`` $(round(Fₘₐₓ, sigdigits=5))``\;\text{N}``
+
+	``w_\text{zul}\approx`` $(round(wₘₐₓ, sigdigits=5))``\;\text{m}``
 	"""
 end
 
@@ -1465,5 +1533,8 @@ version = "1.4.1+0"
 # ╟─bd7a72de-8320-4ea0-adae-023f02431757
 # ╟─2c4b71ce-c8fa-4740-b4e1-3977752f7f15
 # ╟─b5191567-c53d-49ad-a182-389e11d1523e
+# ╟─dc8d9295-2d4c-442a-a2cd-6868e74958d9
+# ╟─11b520ea-3010-4e92-8d26-cbea7bf4208c
+# ╟─509c6142-470b-468f-8af9-2694cb813d96
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

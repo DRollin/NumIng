@@ -16,7 +16,8 @@ end
 
 # ╔═╡ 73535a84-86a8-11ed-1244-8d2f5d14cc66
 begin
-	using PlutoUI, Plots, ColorSchemes, SparseArrays, LinearAlgebra, LaTeXStrings
+	using PlutoUI, PlutoTeachingTools
+	using Plots, ColorSchemes, SparseArrays, LinearAlgebra, LaTeXStrings
 
 	H(x) = x < 0 ? 0 : 1
 	precompile(H, (Function, Float64))
@@ -27,46 +28,7 @@ begin
 	const arcsin = asin
 	const arctan = atan
 	
-	md"""
-	# Konvektion in 1D
-	"""
-end
-
-# ╔═╡ 57866b31-4ea7-438e-b114-d7510be88a98
-begin
-	md"""
-	## Betrachtetes Problem
-
-	Konvektion in 1D einer Spezies mit Konzentration ``c``.
-
-	Gleichung:
-
-	##### ``\frac{\partial}{\partial t}c(x,t) = -v\,\frac{\partial}{\partial x}c(x,t) ~ ; ~ x \in (0,1), ~ t \in [0, tₑ]``
-
-	Mit Konvektionsgeschwindigkeit 
-	
-	##### ``v = `` $(@bind v Slider(vcat([0.01], 0.1:0.1:1, 1:1:10); default=0.1, show_value=true))
-
-	und 
-	
-	##### ``t_e =`` $(@bind tₑ Slider(vcat(1:1:10, 10:10:100, 100:100:1000); default=10, show_value=true))
-
-	Periodische Randbedingung:
-
-	##### ``c(0,t) = c(1,t)``
-
-	Verwendete Anfangsbedingung:
-
-	##### ``c(x,0) =`` $(@bind cinitial TextField(;default="sin(pi*x)"))
-
-	Die Lösung des Problems ist gegeben durch eine Fortbewegung des des Anfangszustandes mit der Geschwindigkeit **``v``**.
-	Für das gegebene Gebiet der Länge ``1`` und periodischen Randbedingungen wird der Anfangszustand zu den Zeiten ``t^* = n \frac{1}{v} ~ , n \in \mathbb{N}`` erneut erreicht.
-	"""
-end
-
-# ╔═╡ 02017e43-bcb6-4e9c-8655-6fd79da6dd75
-begin
-		# Räumliche Diskretisierung
+			# Räumliche Diskretisierung
 	function set_cyclic_diagonal!(K::AbstractMatrix, d::Integer, value::Number)
 		N = size(K)[1]
 		rows = 1:1:N
@@ -96,11 +58,10 @@ begin
 		set_cyclic_diagonal!(K, -1, -1.0)
 		return K
 	end
-
-	spatialmethodnames = ["vorwärts", "zentral", "rückwärts"]
-	spatialmethods = Dict("vorwärts" => forward, "zentral" => central, "rückwärts" => backward)
-
-		# Zeitliche Diskretisierung
+		
+	spatialmethodnames = ["zentraler", "vorwärts", "rückwärts"]
+	spatialmethods = Dict("vorwärts" => forward, "zentraler" => central, "rückwärts" => backward)
+			# Zeitliche Diskretisierung
 	function euler_forward(cⁿ::Vector{<:Real}, tⁿ::Real, Δt::Real, K::AbstractMatrix)
 		return cⁿ + Δt .* K * cⁿ
 	end
@@ -117,10 +78,61 @@ begin
 		k₄ = K * (cⁿ + Δt .* (k₁ - k₂ + k₃))
 		return cⁿ + Δt/8 .* (k₁ + 3 .* k₂ + 3 .* k₃ + k₄)
 	end
-	
+
 	timemethodnames = ["Euler vorwärts", "Euler rückwärts", "Trapez-Regel", "3/8-Regel"]
 	timemethods = Dict("Euler vorwärts" => euler_forward, "Euler rückwärts" => euler_backward, "Trapez-Regel" => trapezoidal, "3/8-Regel" => RK38)
+
+		# Plotting
+	function plot_state(xᵢ::LinRange, c::Vector, t::Real, clims::Tuple)
+		plot(xᵢ, c; color=:blue, linewidth=3, label=false, xlims=(-0.1,1.1), ylims=clims, size=(680,600), title=md"``t =`` $(round(t; digits=3))", xlabel=md"``x``", ylabel=md"``c``")
+	end
 	
+	md"""
+	# Konvektion in 1D
+	"""
+end
+
+# ╔═╡ 824d65fc-e953-46c5-a9d7-257c89a74363
+ChooseDisplayMode()
+
+# ╔═╡ 57866b31-4ea7-438e-b114-d7510be88a98
+begin
+	possibleinit = [
+		begin x -> sin(π*x) end => "sin(πx)",
+		begin x -> cos(π*x) end => "cos(πx)",
+		begin x -> H(x-0.25)-H(x-0.75) end => "H(x-0.25)-H(x-0.75)",
+	]
+
+	
+	md"""
+	## Betrachtetes Problem
+
+	Konvektion in 1D einer Spezies mit Konzentration ``c``.
+
+	Gleichung:
+
+	##### ``\frac{\partial}{\partial t}c(x,t) = -v\,\frac{\partial}{\partial x}c(x,t) ~ ; ~ x \in (0,1), ~ t \in [0, t_e]``
+
+	Mit Konvektionsgeschwindigkeit 
+	``v = `` $( @bind v Select([0.01, 0.1, 0.2, 0.5, 1.0, 2.0, 5.0, 10.0]; default=0.1,) )
+	und 
+	``t_e =`` $( @bind tₑ Select([1.0,2.0,5.0,10.0,20.0,50.0,100.0,200.0,500.0,1000.0]; default=10.0) )
+
+	Periodische Randbedingung:
+
+	##### ``c(0,t) = c(1,t)``
+
+	Verwendete Anfangsbedingung:
+
+	##### ``c(x,0) =`` $(@bind cᵢₙᵢ Select(possibleinit))
+
+	Die Lösung des Problems ist gegeben durch eine Fortbewegung des Anfangszustandes mit der Geschwindigkeit **``v``**.
+	Für das gegebene Gebiet der Länge ``1`` und periodischen Randbedingungen wird der Anfangszustand zu den Zeiten ``t^* = n \frac{1}{v} ~ , n \in \mathbb{N}`` erneut erreicht.
+	"""
+end
+
+# ╔═╡ 02017e43-bcb6-4e9c-8655-6fd79da6dd75
+begin
 	md"""
 	## Diskretisierung
 
@@ -132,51 +144,45 @@ begin
 
 	### Räumliche Diskretisierung mit Finiten Differenzen
 
-	Folgender Differenzenquotient wird verwendet:
-	$(@bind spacialmethodname Select(spatialmethodnames; default="zentral"))
-
-	mit der Anzahl Stützstellen: 
-	
-	##### ``N =`` $(@bind N Slider(vcat(10:10:90, 100:50:1000); default=5, show_value=true))
+	Es wird ein 
+	$(@bind spacialmethodname Select(spatialmethodnames))
+	Differenzenquotient mit
+	``N =`` $( @bind N Select([5,10,20,50,70,100,200,500,700,1000]; default=5) )
+	Stützstellen verwendet.
 
 	Mit dem gewählten Stencil wird eine Matrix ``\underline{\underline{K}}`` erstellt, sodass die räumliche Ableitung der Konzentration an den Stützstellen zum Zeitpunkt ``t_n`` beschrieben wird durch:
 
 	##### ``\frac{\partial}{\partial x} \underline{c}^n \approx \frac{1}{\Delta x} \underline{\underline{K}} \, \underline{c}^n``
+	"""
+end
 
-	### Zeitliche Diskretisierung mit Zeit-Integrations-Verfahren
-
-	Folgendes Verfahren wird verwendet: $(@bind timemethodname Select(timemethodnames, default = "Euler vorwärts"))
-
-	mit der Zeitschrittweite 
+# ╔═╡ 05d21fac-3ffa-4324-b02f-479cfcf48c27
+begin
+	xᵢ = LinRange(0,1,N)
+	c⁰ = cᵢₙᵢ.(xᵢ)
+	clims = (minimum(c⁰), maximum(c⁰))
+	clims = ( clims[1] + 0.2*(clims[1]-clims[2]), clims[2] - 0.2*(clims[1]-clims[2]) )
 	
-	##### ``Δt =`` $(@bind Δt Slider(0.0005:0.0001:0.01; default=0.1, show_value=true))
+	md"""
+	Mit der gewählten räumlichen Diskretisierung ergibt sich folgender Anfangszustand für das Problem:
 
-	Dieses wird auf das System
-
-	##### ``\frac{\partial}{\partial t}\underline{c} = -\frac{v}{\Delta x} \underline{\underline{K}} \, \underline{c}``
-
-	angewendet.
+	$(plot_state(xᵢ, c⁰, 0.0, clims))
 	"""
 end
 
 # ╔═╡ 408a0f77-bc2e-460f-bbe3-9c7afb020bb9
 begin
-	
-	xᵢ = LinRange(0,1,N)
-	cᵢₙᵢ = eval(Meta.parse("(x) -> " * cinitial))
-	c⁰ = cᵢₙᵢ.(xᵢ)
-	clims = (minimum(c⁰), maximum(c⁰))
-	clims = ( clims[1] + 0.2*(clims[1]-clims[2]), clims[2] - 0.2*(clims[1]-clims[2]) )
-	
-
-	function plot_state(c::Vector, t::Real)
-		plot(xᵢ, c; color=:blue, linewidth=3, label=false, xlims=(-0.1,1.1), ylims=clims, size=(700,600), title=md"``t =`` $(round(t; digits=3))", xlabel=L"x", ylabel=L"c")
-	end
-	
 	md"""
-	## Anfangszustand
+	### Zeitliche Diskretisierung mit Zeit-Integrations-Verfahren
 
-	$(plot_state(c⁰, 0.0))
+	Es wird das $( @bind timemethodname Select(timemethodnames, default = "Euler vorwärts") ) Verfahren
+	mit der Zeitschrittweite 
+	``Δt =`` $( @bind Δt Select([0.0005, 0.001, 0.005, 0.01, 0.05, 0.1]; default=0.1) )
+	verwendet.
+
+	Dieses wird auf das System
+	**``\frac{\partial}{\partial t}\underline{c} = -\frac{v}{\Delta x} \underline{\underline{K}} \, \underline{c}``**
+	angewendet.
 	"""
 end
 
@@ -187,27 +193,30 @@ begin
 
 	Δx = 1/N
 	K = spzeros(N,N)
-	K = -v/Δx .* spatialmethod!(K)
+	tsetup = @elapsed K = -v/Δx .* spatialmethod!(K)
 	
 	c = deepcopy(c⁰)
 	anim = Animation()
 	t = collect(0:Δt:tₑ)
+	
 	tcomp = 0.0
-
-	frame(anim, plot_state(c, 0.0))
+	tplot = @elapsed frame(anim, plot_state(xᵢ, c, 0.0, clims))
 	for n in 1:length(t)-1
-    	global tcomp += @elapsed begin 
-			global c = timemethod(c, t[n], t[n+1]-t[n], K)
-		end
-		mod(100*(t[n+1]/tₑ), 1) ≈ 0 ? frame(anim, plot_state(c, t[n+1])) : nothing
+    	global tcomp += @elapsed global c = timemethod(c, t[n], t[n+1]-t[n], K)
+		mod(100*(t[n+1]/tₑ), 1) ≈ 0 ? begin global tplot += @elapsed frame(anim, plot_state(xᵢ, c, t[n+1], clims)) end : nothing
 	end
 
-	g = gif(deepcopy(anim), fps=5; show_msg=false, loop=-1)
+	tplot += @elapsed g = gif(deepcopy(anim), fps=5; show_msg=false, loop=-1)
 	
 	md"""
-	Die Berechnung hat **$(tcomp) s** gedauert.
-
+	Das Ergebnis wird durch den Zustand zu 100 Zeitpunkten in gleichen Abständen dargestellt:
 	$(g)
+
+	Rechenzeiten:
+
+	| System Matrix aufstellen | Zeitschritte berechnen | Animation erstellen |
+	|:------------------------:|:----------------------:|:-------------------:|
+	| $( tsetup ) s            | $( tcomp ) s           | $( tplot ) s        |
 	"""
 end
 
@@ -218,6 +227,7 @@ ColorSchemes = "35d6a980-a343-548e-a6ea-1d62b119f2f4"
 LaTeXStrings = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
+PlutoTeachingTools = "661c6b06-c737-4d37-b85c-46df65de6f69"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 
@@ -225,6 +235,7 @@ SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 ColorSchemes = "~3.20.0"
 LaTeXStrings = "~1.3.0"
 Plots = "~1.38.0"
+PlutoTeachingTools = "~0.2.13"
 PlutoUI = "~0.7.49"
 """
 
@@ -234,7 +245,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.9.0"
 manifest_format = "2.0"
-project_hash = "27a69258c444014612677c9d2bcc151e3dfdcb95"
+project_hash = "f7acfa759b872a3cd3cdda089086490c3808cd5a"
 
 [[deps.AbstractPlutoDingetjes]]
 deps = ["Pkg"]
@@ -280,6 +291,12 @@ deps = ["ChainRulesCore", "LinearAlgebra", "Test"]
 git-tree-sha1 = "38f7a08f19d8810338d4f5085211c7dfa5d5bdd8"
 uuid = "9e997f8a-9a97-42d5-a9f1-ce6bfc15e2c0"
 version = "0.1.4"
+
+[[deps.CodeTracking]]
+deps = ["InteractiveUtils", "UUIDs"]
+git-tree-sha1 = "a1296f0fe01a4c3f9bf0dc2934efbf4416f5db31"
+uuid = "da1fd8a2-8d9e-5ec2-8556-3022fb5608a2"
+version = "1.3.4"
 
 [[deps.CodecZlib]]
 deps = ["TranscodingStreams", "Zlib_jll"]
@@ -347,6 +364,10 @@ deps = ["Mmap"]
 git-tree-sha1 = "9e2f36d3c96a820c678f2f1f1782582fcf685bae"
 uuid = "8bb1440f-4735-579b-a4ab-409b98df4dab"
 version = "1.9.1"
+
+[[deps.Distributed]]
+deps = ["Random", "Serialization", "Sockets"]
+uuid = "8ba89e20-285c-5b6f-9357-94700520ee1b"
 
 [[deps.DocStringExtensions]]
 deps = ["LibGit2"]
@@ -525,6 +546,12 @@ git-tree-sha1 = "b53380851c6e6664204efb2e62cd24fa5c47e4ba"
 uuid = "aacddb02-875f-59d6-b918-886e6ef4fbf8"
 version = "2.1.2+0"
 
+[[deps.JuliaInterpreter]]
+deps = ["CodeTracking", "InteractiveUtils", "Random", "UUIDs"]
+git-tree-sha1 = "81dc6aefcbe7421bd62cb6ca0e700779330acff8"
+uuid = "aa1ae85d-cabe-5617-a682-6adf51b2e16a"
+version = "0.9.25"
+
 [[deps.LAME_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "f6250b16881adf048549549fba48b1161acdac8c"
@@ -642,6 +669,12 @@ deps = ["Dates", "Logging"]
 git-tree-sha1 = "cedb76b37bc5a6c702ade66be44f831fa23c681e"
 uuid = "e6f89c97-d47a-5376-807f-9c37f3926c36"
 version = "1.0.0"
+
+[[deps.LoweredCodeUtils]]
+deps = ["JuliaInterpreter"]
+git-tree-sha1 = "60168780555f3e663c536500aa790b6368adc02a"
+uuid = "6f1432cf-f94c-5a45-995e-cdbf5db27b0b"
+version = "2.3.0"
 
 [[deps.MIMEs]]
 git-tree-sha1 = "65f28ad4b594aebe22157d6fac869786a255b7eb"
@@ -787,6 +820,24 @@ git-tree-sha1 = "513084afca53c9af3491c94224997768b9af37e8"
 uuid = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 version = "1.38.0"
 
+[[deps.PlutoHooks]]
+deps = ["InteractiveUtils", "Markdown", "UUIDs"]
+git-tree-sha1 = "072cdf20c9b0507fdd977d7d246d90030609674b"
+uuid = "0ff47ea0-7a50-410d-8455-4348d5de0774"
+version = "0.0.5"
+
+[[deps.PlutoLinks]]
+deps = ["FileWatching", "InteractiveUtils", "Markdown", "PlutoHooks", "Revise", "UUIDs"]
+git-tree-sha1 = "8f5fa7056e6dcfb23ac5211de38e6c03f6367794"
+uuid = "0ff47ea0-7a50-410d-8455-4348d5de0420"
+version = "0.1.6"
+
+[[deps.PlutoTeachingTools]]
+deps = ["Downloads", "HypertextLiteral", "LaTeXStrings", "Latexify", "Markdown", "PlutoLinks", "PlutoUI", "Random"]
+git-tree-sha1 = "542de5acb35585afcf202a6d3361b430bc1c3fbd"
+uuid = "661c6b06-c737-4d37-b85c-46df65de6f69"
+version = "0.2.13"
+
 [[deps.PlutoUI]]
 deps = ["AbstractPlutoDingetjes", "Base64", "ColorTypes", "Dates", "FixedPointNumbers", "Hyperscript", "HypertextLiteral", "IOCapture", "InteractiveUtils", "JSON", "Logging", "MIMEs", "Markdown", "Random", "Reexport", "URIs", "UUIDs"]
 git-tree-sha1 = "eadad7b14cf046de6eb41f13c9275e5aa2711ab6"
@@ -845,6 +896,12 @@ deps = ["UUIDs"]
 git-tree-sha1 = "838a3a4188e2ded87a4f9f184b4b0d78a1e91cb7"
 uuid = "ae029012-a4dd-5104-9daa-d747884805df"
 version = "1.3.0"
+
+[[deps.Revise]]
+deps = ["CodeTracking", "Distributed", "FileWatching", "JuliaInterpreter", "LibGit2", "LoweredCodeUtils", "OrderedCollections", "Pkg", "REPL", "Requires", "UUIDs", "Unicode"]
+git-tree-sha1 = "7364d5f608f3492a4352ab1d40b3916955dc6aec"
+uuid = "295af30f-e4ad-537b-8983-00126c2a3abe"
+version = "3.5.5"
 
 [[deps.SHA]]
 uuid = "ea8e919c-243c-51af-8825-aaa63cd721ce"
@@ -1202,9 +1259,11 @@ version = "1.4.1+0"
 """
 
 # ╔═╡ Cell order:
+# ╟─824d65fc-e953-46c5-a9d7-257c89a74363
 # ╟─73535a84-86a8-11ed-1244-8d2f5d14cc66
 # ╟─57866b31-4ea7-438e-b114-d7510be88a98
 # ╟─02017e43-bcb6-4e9c-8655-6fd79da6dd75
+# ╟─05d21fac-3ffa-4324-b02f-479cfcf48c27
 # ╟─408a0f77-bc2e-460f-bbe3-9c7afb020bb9
 # ╟─4ad6b528-84dc-4123-8feb-4d3f575a0437
 # ╟─00000000-0000-0000-0000-000000000001

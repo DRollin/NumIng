@@ -16,7 +16,8 @@ end
 
 # ╔═╡ ce6b4784-457c-11ed-097c-cb770363efc8
 begin
-	using PlutoUI, Plots, ColorSchemes, Latexify, LaTeXStrings
+	using PlutoUI, PlutoTeachingTools
+	using Plots, ColorSchemes, Latexify, LaTeXStrings
 
 	function create_polynomial_string(lefthandside, coefficients, variable)
 		string = "$(lefthandside) = "
@@ -41,20 +42,38 @@ begin
 	"""
 end
 
+# ╔═╡ 0d691871-83e6-4e95-a3eb-bb321a6ded4a
+ChooseDisplayMode()
+
 # ╔═╡ 93dfc702-3463-4ee0-bc09-18035b8e1495
-md"""
-## Parameter
-
-Stützstellen: ``x_i \in`` [$(@bind xᵢstring TextField(;default="-0.5,0,0.5"))]
-
-Zugehörige Funktionswerte: ``y_i \in`` [$(@bind yᵢstring TextField(;default="-0.5,-0.5,0.5"))]
-"""
+begin
+	values = collect(-5:1:5)
+	md"""
+	## Stützstellen
+	
+	``x_i \in`` [
+	$( @bind x₁ Select(values; default=-5) ) ,
+	$( @bind x₂ Select(values; default=-3) ) ,
+	$( @bind x₃ Select(values; default=0) ) ,
+	$( @bind x₄ Select(values; default=3) ) ,
+	$( @bind x₅ Select(values; default=5) ) ,
+	]
+	
+	``y_i \in`` [
+	$( @bind y₁ Select(values; default=-5) ) ,
+	$( @bind y₂ Select(values; default=-3) ) ,
+	$( @bind y₃ Select(values; default=0) ) ,
+	$( @bind y₄ Select(values; default=3) ) ,
+	$( @bind y₅ Select(values; default=5) ) ,
+	]
+	"""
+end
 
 # ╔═╡ df5770f9-bcb1-4c47-b5bf-cf1cecbf3889
 begin
 	# Stützstellen aus gegebenen Text-Inputs auslesen
-	xᵢ = parse.([Float64], split(xᵢstring, ","))
-	yᵢ = parse.([Float64], split(yᵢstring, ","))
+	xᵢ = [x₁, x₂, x₃, x₄, x₅]
+	yᵢ = [y₁, y₂, y₃, y₄, y₅]
 	@assert length(xᵢ) == length(yᵢ) "Für $(length(xᵢ)) x-Werte wurden $(length(yᵢ)) y-Werte gegeben."
 	# Anzahl Stützstellen (für später)
 	m = length(xᵢ)
@@ -67,7 +86,7 @@ begin
 	md"""
 	Für $(length(xᵢ)) Stützstellen kann ein Interpolationspolynom $(length(xᵢ) -1)-ten Grades eindeutig bestimmt werden
 	
-	$(plot(xᵢ, yᵢ; seriestype=:scatter, legend=false, title="Stützpunkte", size=(700,400)))
+	$(plot(xᵢ, yᵢ; seriestype=:scatter, legend=false, title="Stützpunkte", size=(680,400)))
 	"""
 end
 
@@ -137,8 +156,10 @@ begin
 	end
 	t₁ = @elapsed begin
 	coefficients = compute_coefficients()
+	coefficients = round.(coefficients; digits=10)
+	coefficients = round.(coefficients; sigdigits=5)
 	P(x) = sum( x^(i-1)*coefficients[i] for i in 1:m )
-	y₁ = P.(x)
+	y = P.(x)
 	end
 
 	solution_string = latexify(unknowns; env=:array) * " = " * latexify(coefficients; env=:array)
@@ -146,7 +167,7 @@ begin
 	md"""
 	Die Berechnung der Werte für die Darstellung hat **$(t₁) s** gedauert.
 	
-	Ergebnis:
+	Ergebnis (gerundet):
 
 	$(wrap_tex(solution_string))
 
@@ -156,8 +177,8 @@ end
 
 # ╔═╡ ab9d92ba-643f-402b-9939-3e4d006bbbed
 begin
-	p₁ = plot(xᵢ, yᵢ; seriestype=:scatter, legend=false, title="Ergebnis", size=(700,400), xlabel=md"``x``", ylabel=md"``P(x)``")
-	plot!(p₁, x, y₁; seriestype=:line, legend=false, linewidth=2)
+	p₁ = plot(xᵢ, yᵢ; seriestype=:scatter, legend=false, title="Ergebnis", size=(680,400), xlabel=md"``x``", ylabel=md"``P(x)``")
+	plot!(p₁, x, y; seriestype=:line, legend=false, linewidth=2)
 end
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
@@ -167,6 +188,7 @@ ColorSchemes = "35d6a980-a343-548e-a6ea-1d62b119f2f4"
 LaTeXStrings = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
 Latexify = "23fbe1c1-3f47-55db-b15f-69d7ec21a316"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
+PlutoTeachingTools = "661c6b06-c737-4d37-b85c-46df65de6f69"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 
 [compat]
@@ -174,6 +196,7 @@ ColorSchemes = "~3.23.0"
 LaTeXStrings = "~1.3.0"
 Latexify = "~0.16.1"
 Plots = "~1.39.0"
+PlutoTeachingTools = "~0.2.13"
 PlutoUI = "~0.7.52"
 """
 
@@ -183,7 +206,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.9.0"
 manifest_format = "2.0"
-project_hash = "06fce8ecac887c70db03e752c2424b467a599308"
+project_hash = "bfd357b86ebc9ea84d244d7412c9e1c52f272635"
 
 [[deps.AbstractPlutoDingetjes]]
 deps = ["Pkg"]
@@ -217,6 +240,12 @@ deps = ["Artifacts", "Bzip2_jll", "CompilerSupportLibraries_jll", "Fontconfig_jl
 git-tree-sha1 = "4b859a208b2397a7a623a03449e4636bdb17bcf2"
 uuid = "83423d85-b0ee-5818-9007-b63ccbeb887a"
 version = "1.16.1+1"
+
+[[deps.CodeTracking]]
+deps = ["InteractiveUtils", "UUIDs"]
+git-tree-sha1 = "a1296f0fe01a4c3f9bf0dc2934efbf4416f5db31"
+uuid = "da1fd8a2-8d9e-5ec2-8556-3022fb5608a2"
+version = "1.3.4"
 
 [[deps.CodecZlib]]
 deps = ["TranscodingStreams", "Zlib_jll"]
@@ -301,6 +330,10 @@ git-tree-sha1 = "9e2f36d3c96a820c678f2f1f1782582fcf685bae"
 uuid = "8bb1440f-4735-579b-a4ab-409b98df4dab"
 version = "1.9.1"
 
+[[deps.Distributed]]
+deps = ["Random", "Serialization", "Sockets"]
+uuid = "8ba89e20-285c-5b6f-9357-94700520ee1b"
+
 [[deps.DocStringExtensions]]
 deps = ["LibGit2"]
 git-tree-sha1 = "2fb1e02f2b635d0845df5d7c167fec4dd739b00d"
@@ -311,6 +344,12 @@ version = "0.9.3"
 deps = ["ArgTools", "FileWatching", "LibCURL", "NetworkOptions"]
 uuid = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
 version = "1.6.0"
+
+[[deps.EpollShim_jll]]
+deps = ["Artifacts", "JLLWrappers", "Libdl"]
+git-tree-sha1 = "8e9441ee83492030ace98f9789a654a6d0b1f643"
+uuid = "2702e6a9-849d-5ed8-8c21-79e8b8f9ee43"
+version = "0.0.20230411+0"
 
 [[deps.ExceptionUnwrapping]]
 deps = ["Test"]
@@ -473,6 +512,12 @@ git-tree-sha1 = "6f2675ef130a300a112286de91973805fcc5ffbc"
 uuid = "aacddb02-875f-59d6-b918-886e6ef4fbf8"
 version = "2.1.91+0"
 
+[[deps.JuliaInterpreter]]
+deps = ["CodeTracking", "InteractiveUtils", "Random", "UUIDs"]
+git-tree-sha1 = "81dc6aefcbe7421bd62cb6ca0e700779330acff8"
+uuid = "aa1ae85d-cabe-5617-a682-6adf51b2e16a"
+version = "0.9.25"
+
 [[deps.LAME_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "f6250b16881adf048549549fba48b1161acdac8c"
@@ -614,6 +659,12 @@ deps = ["Dates", "Logging"]
 git-tree-sha1 = "0d097476b6c381ab7906460ef1ef1638fbce1d91"
 uuid = "e6f89c97-d47a-5376-807f-9c37f3926c36"
 version = "1.0.2"
+
+[[deps.LoweredCodeUtils]]
+deps = ["JuliaInterpreter"]
+git-tree-sha1 = "60168780555f3e663c536500aa790b6368adc02a"
+uuid = "6f1432cf-f94c-5a45-995e-cdbf5db27b0b"
+version = "2.3.0"
 
 [[deps.MIMEs]]
 git-tree-sha1 = "65f28ad4b594aebe22157d6fac869786a255b7eb"
@@ -767,6 +818,24 @@ version = "1.39.0"
     ImageInTerminal = "d8c32880-2388-543b-8c61-d9f865259254"
     Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"
 
+[[deps.PlutoHooks]]
+deps = ["InteractiveUtils", "Markdown", "UUIDs"]
+git-tree-sha1 = "072cdf20c9b0507fdd977d7d246d90030609674b"
+uuid = "0ff47ea0-7a50-410d-8455-4348d5de0774"
+version = "0.0.5"
+
+[[deps.PlutoLinks]]
+deps = ["FileWatching", "InteractiveUtils", "Markdown", "PlutoHooks", "Revise", "UUIDs"]
+git-tree-sha1 = "8f5fa7056e6dcfb23ac5211de38e6c03f6367794"
+uuid = "0ff47ea0-7a50-410d-8455-4348d5de0420"
+version = "0.1.6"
+
+[[deps.PlutoTeachingTools]]
+deps = ["Downloads", "HypertextLiteral", "LaTeXStrings", "Latexify", "Markdown", "PlutoLinks", "PlutoUI", "Random"]
+git-tree-sha1 = "542de5acb35585afcf202a6d3361b430bc1c3fbd"
+uuid = "661c6b06-c737-4d37-b85c-46df65de6f69"
+version = "0.2.13"
+
 [[deps.PlutoUI]]
 deps = ["AbstractPlutoDingetjes", "Base64", "ColorTypes", "Dates", "FixedPointNumbers", "Hyperscript", "HypertextLiteral", "IOCapture", "InteractiveUtils", "JSON", "Logging", "MIMEs", "Markdown", "Random", "Reexport", "URIs", "UUIDs"]
 git-tree-sha1 = "e47cd150dbe0443c3a3651bc5b9cbd5576ab75b7"
@@ -831,6 +900,12 @@ deps = ["UUIDs"]
 git-tree-sha1 = "838a3a4188e2ded87a4f9f184b4b0d78a1e91cb7"
 uuid = "ae029012-a4dd-5104-9daa-d747884805df"
 version = "1.3.0"
+
+[[deps.Revise]]
+deps = ["CodeTracking", "Distributed", "FileWatching", "JuliaInterpreter", "LibGit2", "LoweredCodeUtils", "OrderedCollections", "Pkg", "REPL", "Requires", "UUIDs", "Unicode"]
+git-tree-sha1 = "7364d5f608f3492a4352ab1d40b3916955dc6aec"
+uuid = "295af30f-e4ad-537b-8983-00126c2a3abe"
+version = "3.5.5"
 
 [[deps.SHA]]
 uuid = "ea8e919c-243c-51af-8825-aaa63cd721ce"
@@ -966,7 +1041,7 @@ uuid = "41fe7b60-77ed-43a1-b4f0-825fd5a5650d"
 version = "0.2.0"
 
 [[deps.Wayland_jll]]
-deps = ["Artifacts", "Expat_jll", "JLLWrappers", "Libdl", "Libffi_jll", "Pkg", "XML2_jll"]
+deps = ["Artifacts", "EpollShim_jll", "Expat_jll", "JLLWrappers", "Libdl", "Libffi_jll", "Pkg", "XML2_jll"]
 git-tree-sha1 = "ed8d92d9774b077c53e1da50fd81a36af3744c1c"
 uuid = "a2964d1f-97da-50d4-b82a-358c7fce9d89"
 version = "1.21.0+0"
@@ -1203,6 +1278,7 @@ version = "1.4.1+0"
 """
 
 # ╔═╡ Cell order:
+# ╟─0d691871-83e6-4e95-a3eb-bb321a6ded4a
 # ╟─ce6b4784-457c-11ed-097c-cb770363efc8
 # ╟─93dfc702-3463-4ee0-bc09-18035b8e1495
 # ╟─df5770f9-bcb1-4c47-b5bf-cf1cecbf3889
