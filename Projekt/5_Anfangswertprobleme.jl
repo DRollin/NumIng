@@ -14,11 +14,19 @@ macro bind(def, element)
     end
 end
 
+# ╔═╡ c281403c-2d9d-4dcc-942c-f99293d1c502
+begin
+	using PlutoUI, PlutoTeachingTools
+	using Plots, ColorSchemes, LaTeXStrings, Latexify
+	import ForwardDiff
+	nothing
+end
+
+# ╔═╡ 45e5c407-4caf-4a48-b3c8-bced57eff7df
+ChooseDisplayMode()
+
 # ╔═╡ 586776c0-4d71-11ee-20b5-431b2fa2f7f3
 begin
-	using PlutoUI, Plots, ColorSchemes, Latexify, LaTeXStrings
-	import ForwardDiff
-
 		# Embedding a string with LaTeX-Syntax into Markdown
 	wrap_tex(x) = Markdown.LaTeX(repr(MIME"text/latex"(), LaTeXStrings.LaTeXString(x)))
 	precompile(wrap_tex, (String,))
@@ -35,11 +43,11 @@ begin
 	
 	Es wurden mit Finiten Differenzen folgende Parameter für den Balken ermittelt:
 	
-	``c = `` $( @bind c NumberField(30000:1000:45000; default=42000) )``\;\text{N/m}``
+	``c = `` $( @bind c Select(30000:1000:45000; default=42000) )``\;\text{N/m}``
 
-	``F_\text{zul} = `` $( @bind Fₘₐₓ NumberField(500:100:1500; default=1200) )``\;\text{N}``
+	``F_\text{zul} = `` $( @bind Fₘₐₓ Select(500:100:1500; default=1200) )``\;\text{N}``
 
-	``w_\text{zul} = `` $( @bind wₘₐₓ NumberField(0.01:0.001:0.04; default=0.029) )``\;\text{m}``
+	``w_\text{zul} = `` $( @bind wₘₐₓ Select(0.015:0.001:0.035; default=0.029) )``\;\text{m}``
 	"""
 end
 
@@ -202,6 +210,7 @@ ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
 LaTeXStrings = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
 Latexify = "23fbe1c1-3f47-55db-b15f-69d7ec21a316"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
+PlutoTeachingTools = "661c6b06-c737-4d37-b85c-46df65de6f69"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 
 [compat]
@@ -210,6 +219,7 @@ ForwardDiff = "~0.10.36"
 LaTeXStrings = "~1.3.0"
 Latexify = "~0.16.1"
 Plots = "~1.39.0"
+PlutoTeachingTools = "~0.2.13"
 PlutoUI = "~0.7.52"
 """
 
@@ -219,7 +229,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.9.0"
 manifest_format = "2.0"
-project_hash = "1c699444ce514c5e3d021679593f54dee71cdced"
+project_hash = "11f739af15788ccc721126a4c55c51e223e3f5ed"
 
 [[deps.AbstractPlutoDingetjes]]
 deps = ["Pkg"]
@@ -253,6 +263,12 @@ deps = ["Artifacts", "Bzip2_jll", "CompilerSupportLibraries_jll", "Fontconfig_jl
 git-tree-sha1 = "4b859a208b2397a7a623a03449e4636bdb17bcf2"
 uuid = "83423d85-b0ee-5818-9007-b63ccbeb887a"
 version = "1.16.1+1"
+
+[[deps.CodeTracking]]
+deps = ["InteractiveUtils", "UUIDs"]
+git-tree-sha1 = "c0216e792f518b39b22212127d4a84dc31e4e386"
+uuid = "da1fd8a2-8d9e-5ec2-8556-3022fb5608a2"
+version = "1.3.5"
 
 [[deps.CodecZlib]]
 deps = ["TranscodingStreams", "Zlib_jll"]
@@ -353,6 +369,10 @@ git-tree-sha1 = "23163d55f885173722d1e4cf0f6110cdbaf7e272"
 uuid = "b552c78f-8df3-52c6-915a-8e097449b14b"
 version = "1.15.1"
 
+[[deps.Distributed]]
+deps = ["Random", "Serialization", "Sockets"]
+uuid = "8ba89e20-285c-5b6f-9357-94700520ee1b"
+
 [[deps.DocStringExtensions]]
 deps = ["LibGit2"]
 git-tree-sha1 = "2fb1e02f2b635d0845df5d7c167fec4dd739b00d"
@@ -363,6 +383,12 @@ version = "0.9.3"
 deps = ["ArgTools", "FileWatching", "LibCURL", "NetworkOptions"]
 uuid = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
 version = "1.6.0"
+
+[[deps.EpollShim_jll]]
+deps = ["Artifacts", "JLLWrappers", "Libdl"]
+git-tree-sha1 = "8e9441ee83492030ace98f9789a654a6d0b1f643"
+uuid = "2702e6a9-849d-5ed8-8c21-79e8b8f9ee43"
+version = "0.0.20230411+0"
 
 [[deps.ExceptionUnwrapping]]
 deps = ["Test"]
@@ -537,6 +563,12 @@ git-tree-sha1 = "6f2675ef130a300a112286de91973805fcc5ffbc"
 uuid = "aacddb02-875f-59d6-b918-886e6ef4fbf8"
 version = "2.1.91+0"
 
+[[deps.JuliaInterpreter]]
+deps = ["CodeTracking", "InteractiveUtils", "Random", "UUIDs"]
+git-tree-sha1 = "0592b1810613d1c95eeebcd22dc11fba186c2a57"
+uuid = "aa1ae85d-cabe-5617-a682-6adf51b2e16a"
+version = "0.9.26"
+
 [[deps.LAME_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "f6250b16881adf048549549fba48b1161acdac8c"
@@ -678,6 +710,12 @@ deps = ["Dates", "Logging"]
 git-tree-sha1 = "0d097476b6c381ab7906460ef1ef1638fbce1d91"
 uuid = "e6f89c97-d47a-5376-807f-9c37f3926c36"
 version = "1.0.2"
+
+[[deps.LoweredCodeUtils]]
+deps = ["JuliaInterpreter"]
+git-tree-sha1 = "60168780555f3e663c536500aa790b6368adc02a"
+uuid = "6f1432cf-f94c-5a45-995e-cdbf5db27b0b"
+version = "2.3.0"
 
 [[deps.MIMEs]]
 git-tree-sha1 = "65f28ad4b594aebe22157d6fac869786a255b7eb"
@@ -837,6 +875,24 @@ version = "1.39.0"
     ImageInTerminal = "d8c32880-2388-543b-8c61-d9f865259254"
     Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"
 
+[[deps.PlutoHooks]]
+deps = ["InteractiveUtils", "Markdown", "UUIDs"]
+git-tree-sha1 = "072cdf20c9b0507fdd977d7d246d90030609674b"
+uuid = "0ff47ea0-7a50-410d-8455-4348d5de0774"
+version = "0.0.5"
+
+[[deps.PlutoLinks]]
+deps = ["FileWatching", "InteractiveUtils", "Markdown", "PlutoHooks", "Revise", "UUIDs"]
+git-tree-sha1 = "8f5fa7056e6dcfb23ac5211de38e6c03f6367794"
+uuid = "0ff47ea0-7a50-410d-8455-4348d5de0420"
+version = "0.1.6"
+
+[[deps.PlutoTeachingTools]]
+deps = ["Downloads", "HypertextLiteral", "LaTeXStrings", "Latexify", "Markdown", "PlutoLinks", "PlutoUI", "Random"]
+git-tree-sha1 = "542de5acb35585afcf202a6d3361b430bc1c3fbd"
+uuid = "661c6b06-c737-4d37-b85c-46df65de6f69"
+version = "0.2.13"
+
 [[deps.PlutoUI]]
 deps = ["AbstractPlutoDingetjes", "Base64", "ColorTypes", "Dates", "FixedPointNumbers", "Hyperscript", "HypertextLiteral", "IOCapture", "InteractiveUtils", "JSON", "Logging", "MIMEs", "Markdown", "Random", "Reexport", "URIs", "UUIDs"]
 git-tree-sha1 = "e47cd150dbe0443c3a3651bc5b9cbd5576ab75b7"
@@ -901,6 +957,12 @@ deps = ["UUIDs"]
 git-tree-sha1 = "838a3a4188e2ded87a4f9f184b4b0d78a1e91cb7"
 uuid = "ae029012-a4dd-5104-9daa-d747884805df"
 version = "1.3.0"
+
+[[deps.Revise]]
+deps = ["CodeTracking", "Distributed", "FileWatching", "JuliaInterpreter", "LibGit2", "LoweredCodeUtils", "OrderedCollections", "Pkg", "REPL", "Requires", "UUIDs", "Unicode"]
+git-tree-sha1 = "ba168f8fc36bf83c8d0573d464b7aab0f8a81623"
+uuid = "295af30f-e4ad-537b-8983-00126c2a3abe"
+version = "3.5.7"
 
 [[deps.SHA]]
 uuid = "ea8e919c-243c-51af-8825-aaa63cd721ce"
@@ -1053,7 +1115,7 @@ uuid = "41fe7b60-77ed-43a1-b4f0-825fd5a5650d"
 version = "0.2.0"
 
 [[deps.Wayland_jll]]
-deps = ["Artifacts", "Expat_jll", "JLLWrappers", "Libdl", "Libffi_jll", "Pkg", "XML2_jll"]
+deps = ["Artifacts", "EpollShim_jll", "Expat_jll", "JLLWrappers", "Libdl", "Libffi_jll", "Pkg", "XML2_jll"]
 git-tree-sha1 = "ed8d92d9774b077c53e1da50fd81a36af3744c1c"
 uuid = "a2964d1f-97da-50d4-b82a-358c7fce9d89"
 version = "1.21.0+0"
@@ -1290,12 +1352,14 @@ version = "1.4.1+0"
 """
 
 # ╔═╡ Cell order:
+# ╟─45e5c407-4caf-4a48-b3c8-bced57eff7df
+# ╟─c281403c-2d9d-4dcc-942c-f99293d1c502
 # ╟─586776c0-4d71-11ee-20b5-431b2fa2f7f3
 # ╟─8fafc372-7580-4434-b0a6-9b370804337a
 # ╟─95821413-f3f6-474b-90ed-935263a4f2e4
 # ╟─321bab5f-4c8f-4624-a1ac-187be2696798
 # ╟─b4f13071-bed1-44a8-9173-523ba0db7284
 # ╟─ad9c2979-5a8a-48cd-a688-460ae8db680c
-# ╠═248e7834-bfac-4b9a-9c08-a599244a0c96
+# ╟─248e7834-bfac-4b9a-9c08-a599244a0c96
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
